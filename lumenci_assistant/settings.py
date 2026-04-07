@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.0/ref/settings/
 """
 
 from pathlib import Path
+from urllib.parse import urlparse
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -39,9 +40,27 @@ SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "dev-insecure-key")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv("DJANGO_DEBUG", "1") in ("1", "true", "True", "yes", "YES")
 
-# Hosts: set DJANGO_ALLOWED_HOSTS on PaaS, or rely on Render's RENDER_EXTERNAL_HOSTNAME.
-_allowed_hosts = [h.strip() for h in os.getenv("DJANGO_ALLOWED_HOSTS", "127.0.0.1,localhost").split(",") if h.strip()]
-_render_host = (os.getenv("RENDER_EXTERNAL_HOSTNAME") or "").strip()
+
+def _env_csv(name: str, default: str) -> list[str]:
+    """Split env on commas; strip whitespace and wrapping quotes (common copy/paste mistake)."""
+    out: list[str] = []
+    for part in (os.getenv(name, default) or "").split(","):
+        s = (part or "").strip().strip('"').strip("'")
+        if s:
+            out.append(s)
+    return out
+
+
+# Hosts: DJANGO_ALLOWED_HOSTS and/or Render's RENDER_EXTERNAL_HOSTNAME / RENDER_EXTERNAL_URL.
+_allowed_hosts = _env_csv("DJANGO_ALLOWED_HOSTS", "127.0.0.1,localhost")
+_render_host = (os.getenv("RENDER_EXTERNAL_HOSTNAME") or "").strip().strip('"').strip("'")
+if not _render_host:
+    _ru = (os.getenv("RENDER_EXTERNAL_URL") or "").strip()
+    if _ru:
+        try:
+            _render_host = (urlparse(_ru).hostname or "").strip()
+        except Exception:
+            _render_host = ""
 if _render_host and _render_host not in _allowed_hosts:
     _allowed_hosts.append(_render_host)
 ALLOWED_HOSTS = _allowed_hosts
@@ -49,6 +68,16 @@ ALLOWED_HOSTS = _allowed_hosts
 # Behind Render's reverse proxy, Django should trust X-Forwarded-Proto for HTTPS URLs.
 if _render_host:
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+# Larger chart uploads (multipart body + file) — avoid 400/413 edge cases on Render.
+DATA_UPLOAD_MAX_MEMORY_SIZE = min(
+    int(os.getenv("DJANGO_DATA_UPLOAD_MAX_MB", "32") or "32") * 1024 * 1024,
+    50 * 1024 * 1024,
+)
+FILE_UPLOAD_MAX_MEMORY_SIZE = min(
+    int(os.getenv("DJANGO_FILE_UPLOAD_MAX_MB", "32") or "32") * 1024 * 1024,
+    50 * 1024 * 1024,
+)
 
 
 # Application definition
@@ -144,16 +173,13 @@ STATIC_URL = "static/"
 STATICFILES_DIRS = [BASE_DIR / "static"]
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
-# Trusted origins for CSRF (POST from same site + API). Include your public https:// URL on Render.
-_csrf_origins = [
-    o.strip()
-    for o in os.getenv("DJANGO_CSRF_TRUSTED_ORIGINS", "http://127.0.0.1:8000,http://localhost:8000").split(",")
-    if o.strip()
-]
+# Trusted origins for CSRF. Set DJANGO_CSRF_TRUSTED_ORIGINS=https://your.onrender.com (no extra quotes).
+_csrf_origins = _env_csv("DJANGO_CSRF_TRUSTED_ORIGINS", "http://127.0.0.1:8000,http://localhost:8000")
 if _render_host:
-    _origin = f"https://{_render_host}"
-    if _origin not in _csrf_origins:
-        _csrf_origins.append(_origin)
+    for _scheme in ("https", "http"):
+        _origin = f"{_scheme}://{_render_host}"
+        if _origin not in _csrf_origins:
+            _csrf_origins.append(_origin)
 CSRF_TRUSTED_ORIGINS = _csrf_origins
 
 # Media uploads (claim charts + product docs)

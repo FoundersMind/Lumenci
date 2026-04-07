@@ -680,7 +680,10 @@ def api_claim_charts_upload(request):
     case_id = request.POST.get("case_id")
     f = request.FILES.get("file")
     if not case_id or not f:
-        return JsonResponse({"ok": False, "error": "Missing case_id or file"}, status=400)
+        msg = "Missing case_id or file. Choose a matter first, then upload again."
+        if settings.DEBUG:
+            msg += f" (POST keys: {list(request.POST.keys())}, FILES: {list(request.FILES.keys())})"
+        return JsonResponse({"ok": False, "error": msg}, status=400)
 
     case = get_object_or_404(Case, id=int(case_id))
     name = request.POST.get("name") or f.name
@@ -730,10 +733,13 @@ def api_product_docs_upload(request):
     case_id = request.POST.get("case_id")
     f = request.FILES.get("file")
     if not case_id or not f:
-        return JsonResponse({"ok": False, "error": "Missing case_id or file"}, status=400)
+        msg = "Missing case_id or file. Choose a matter and chart first."
+        if settings.DEBUG:
+            msg += f" (POST keys: {list(request.POST.keys())}, FILES: {list(request.FILES.keys())})"
+        return JsonResponse({"ok": False, "error": msg}, status=400)
     case = get_object_or_404(Case, id=int(case_id))
     chart_ref: Optional[ClaimChart] = None
-    chart_id_raw = (request.POST.get("claim_chart_id") or "").strip()
+    chart_id_raw = str(request.POST.get("claim_chart_id") or "").strip()
     if chart_id_raw:
         chart_ref = get_object_or_404(ClaimChart, id=int(chart_id_raw), case_id=case.id)
     else:

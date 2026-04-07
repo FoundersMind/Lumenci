@@ -1398,6 +1398,28 @@
           return await r.json();
         }
 
+        /** Multipart uploads: never set Content-Type (browser sets boundary). Surfaces non-JSON errors. */
+        async function apiPostFormData(url, formData) {
+          let r;
+          try {
+            r = await fetch(url, { method: "POST", body: formData });
+          } catch (e) {
+            toast(`Network error: ${e && e.message ? e.message : "request failed"}`);
+            return { ok: false };
+          }
+          const text = await r.text();
+          let data;
+          try {
+            data = JSON.parse(text);
+          } catch {
+            const snippet = text.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 200);
+            toast(`Server ${r.status}: ${snippet || "non-JSON response"}`);
+            return { ok: false, _status: r.status };
+          }
+          if (!r.ok) toast(data.error || `Request failed (${r.status})`);
+          return data;
+        }
+
         function getActiveCase() {
           return state.cases.find((c) => c.id === state.activeCaseId) || null;
         }
@@ -2347,35 +2369,37 @@
             fd.append("case_id", String(c.id));
             fd.append("claim_chart_id", String(targetChart));
             fd.append("file", f);
-            fetch("/api/product-docs/upload", { method: "POST", body: fd })
-              .then((r) => r.json())
-              .then(async (data) => {
-                if (!data.ok) return toast("Upload failed");
-                await refreshCases();
-                const chart = (getActiveCase().claim_charts || []).find((x) => x.id === targetChart);
-                const label = chart ? chart.name : `chart #${targetChart}`;
-                toast(`Technical document linked to “${label}” — Spark will use it in chat for that chart.`);
-              })
-              .finally(() => (el.docFileInput.value = ""));
+            (async () => {
+              const data = await apiPostFormData("/api/product-docs/upload", fd);
+              el.docFileInput.value = "";
+              if (!data.ok) return;
+              await refreshCases();
+              const chart = (getActiveCase().claim_charts || []).find((x) => x.id === targetChart);
+              const label = chart ? chart.name : `chart #${targetChart}`;
+              toast(`Technical document linked to “${label}” — Spark will use it in chat for that chart.`);
+            })();
           });
 
           el.chartFileInput.addEventListener("change", () => {
-            const f = el.chartFileInput.files && el.chartFileInput.files[0];
-            if (!f) return;
-            const c = getActiveCase();
-            if (!c) return toast("Create/select a case first");
-            const fd = new FormData();
-            fd.append("case_id", String(c.id));
-            fd.append("file", f);
-            fetch("/api/claim-charts/upload", { method: "POST", body: fd })
-              .then((r) => r.json())
-              .then(async (data) => {
-                if (!data.ok) return toast("Upload failed");
-                await refreshCases();
-                await loadChart(data.claim_chart.id);
-                toast("Claim chart uploaded");
-              })
-              .finally(() => (el.chartFileInput.value = ""));
+            (async () => {
+              const f = el.chartFileInput.files && el.chartFileInput.files[0];
+              if (!f) return;
+              const c = getActiveCase();
+              if (!c) {
+                toast("Create/select a matter first (use **New** next to Matter), then upload.");
+                el.chartFileInput.value = "";
+                return;
+              }
+              const fd = new FormData();
+              fd.append("case_id", String(c.id));
+              fd.append("file", f);
+              const data = await apiPostFormData("/api/claim-charts/upload", fd);
+              el.chartFileInput.value = "";
+              if (!data || !data.ok) return;
+              await refreshCases();
+              await loadChart(data.claim_chart.id);
+              toast("Claim chart uploaded");
+            })();
           });
 
           el.workspaceBundle.addEventListener("click", (e) => {
