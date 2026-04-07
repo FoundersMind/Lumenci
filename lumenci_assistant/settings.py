@@ -39,7 +39,16 @@ SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "dev-insecure-key")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv("DJANGO_DEBUG", "1") in ("1", "true", "True", "yes", "YES")
 
-ALLOWED_HOSTS = [h.strip() for h in os.getenv("DJANGO_ALLOWED_HOSTS", "127.0.0.1,localhost").split(",") if h.strip()]
+# Hosts: set DJANGO_ALLOWED_HOSTS on PaaS, or rely on Render's RENDER_EXTERNAL_HOSTNAME.
+_allowed_hosts = [h.strip() for h in os.getenv("DJANGO_ALLOWED_HOSTS", "127.0.0.1,localhost").split(",") if h.strip()]
+_render_host = (os.getenv("RENDER_EXTERNAL_HOSTNAME") or "").strip()
+if _render_host and _render_host not in _allowed_hosts:
+    _allowed_hosts.append(_render_host)
+ALLOWED_HOSTS = _allowed_hosts
+
+# Behind Render's reverse proxy, Django should trust X-Forwarded-Proto for HTTPS URLs.
+if _render_host:
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 
 # Application definition
@@ -135,8 +144,17 @@ STATIC_URL = "static/"
 STATICFILES_DIRS = [BASE_DIR / "static"]
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
-# Allow local JS fetch calls without hassle (prototype only).
-CSRF_TRUSTED_ORIGINS = [o.strip() for o in os.getenv("DJANGO_CSRF_TRUSTED_ORIGINS", "http://127.0.0.1:8000,http://localhost:8000").split(",") if o.strip()]
+# Trusted origins for CSRF (POST from same site + API). Include your public https:// URL on Render.
+_csrf_origins = [
+    o.strip()
+    for o in os.getenv("DJANGO_CSRF_TRUSTED_ORIGINS", "http://127.0.0.1:8000,http://localhost:8000").split(",")
+    if o.strip()
+]
+if _render_host:
+    _origin = f"https://{_render_host}"
+    if _origin not in _csrf_origins:
+        _csrf_origins.append(_origin)
+CSRF_TRUSTED_ORIGINS = _csrf_origins
 
 # Media uploads (claim charts + product docs)
 MEDIA_URL = "/media/"
