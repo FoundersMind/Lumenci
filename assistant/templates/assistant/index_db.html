@@ -1,0 +1,2557 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Lumenci Spark — Claim-chart copilot</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet" />
+
+    <style>
+      :root{
+        --primary:#1e3a5f;
+        --accent:#2563eb;
+        --success:#198754;
+        --warning:#d97706;
+        --danger:#dc3545;
+        --surface:#ffffff;
+        --surface-2:#f8f9fa;
+        --border:#e2e8f0;
+        --text-muted:#6b7280;
+        --chat-user:#1e3a5f;
+        --chat-ai-bg:#ffffff;
+        --chat-ai-border:#dbe4f0;
+        --sug-claim:#1d4ed8;
+        --sug-claim-bg:#eff6ff;
+        --sug-evidence:#b45309;
+        --sug-evidence-bg:#fffbeb;
+        --sug-reasoning:#6d28d9;
+        --sug-reasoning-bg:#f5f3ff;
+        --diff-old-bg:#fef2f2;
+        --diff-old-border:#fecaca;
+        --diff-new-bg:#ecfdf5;
+        --diff-new-border:#a7f3d0;
+      }
+
+      html,body{ height:100%; }
+      body{
+        font-family:'Inter', system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+        font-size:14px;
+        line-height:1.6;
+        color:#0f172a;
+        background:var(--surface);
+        overflow:hidden;
+      }
+
+      .app-header{
+        height:48px;
+        position:fixed;
+        top:0; left:0; right:0;
+        z-index:1030;
+        background:var(--surface);
+        border-bottom:1px solid var(--border);
+        box-shadow: 0 1px 6px rgba(15,23,42,.04);
+      }
+      .brand{ display:flex; align-items:center; gap:10px; user-select:none; }
+      .brand-title{ font-weight:800; letter-spacing:-0.02em; color:var(--primary); font-size:16px; }
+      .brand-badge{ font-size:10px; font-weight:800; letter-spacing:.06em; }
+      .app-header-tagline{
+        font-size:11px; color:#64748b; font-weight:600; letter-spacing:.02em; margin-top:2px;
+      }
+
+      .app-main{
+        position:fixed;
+        top:48px; left:0; right:0; bottom:0;
+        display:flex;
+        min-height:0;
+      }
+      .panel{ min-height:0; display:flex; flex-direction:column; }
+      .panel-left{ width:45%; border-right:1px solid var(--border); background:var(--surface); }
+      .panel-right{
+        width:55%;
+        background:var(--surface);
+        min-height:0;
+        display:flex;
+        flex-direction:column;
+        flex:1 1 auto;
+      }
+
+      .panel-topbar{
+        padding:8px 10px;
+        border-bottom:1px solid var(--border);
+        background:var(--surface);
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:8px;
+      }
+      /* Single compact chrome row: maximum vertical space for the claim table */
+      .chart-chrome{
+        flex:0 0 auto;
+        border-bottom:1px solid #e2e8f0;
+        background:#f8fafc;
+        padding:4px 8px;
+      }
+      .chart-chrome-inner{
+        display:flex;
+        flex-wrap:wrap;
+        align-items:center;
+        gap:6px 10px;
+      }
+      .chrome-heading{
+        display:flex; align-items:center; gap:6px; flex-wrap:wrap;
+        flex:0 1 auto;
+      }
+      .chrome-heading-eyebrow{
+        font-size:9px; font-weight:800; letter-spacing:.1em; text-transform:uppercase; color:#94a3b8;
+      }
+      .chrome-heading-title{
+        font-size:13px; font-weight:800; color:var(--primary); letter-spacing:-0.02em;
+      }
+      .chrome-matter{
+        display:flex; align-items:center; gap:5px;
+        flex:1 1 160px;
+        min-width:0;
+      }
+      .chrome-matter-label{
+        font-size:9px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; color:#64748b;
+        white-space:nowrap;
+        flex:0 0 auto;
+      }
+      .chrome-matter .matter-select, .chrome-matter select.form-select{
+        min-width:120px;
+        flex:1 1 auto;
+        max-width:min(280px, 36vw);
+        font-size:12px;
+        padding:2px 8px;
+        line-height:1.35;
+        min-height:28px;
+        border-color:#cbd5e1;
+      }
+      .btn-matter-new{
+        font-size:11px; font-weight:600;
+        padding:2px 8px;
+        line-height:1.35;
+        border-color:#94a3b8; color:#334155;
+        white-space:nowrap;
+        flex:0 0 auto;
+      }
+      .btn-matter-new:hover{ background:#f1f5f9; border-color:#64748b; color:#0f172a; }
+      .chrome-actions{
+        display:flex; align-items:center; flex-wrap:wrap;
+        gap:4px;
+        margin-left:auto;
+      }
+      .chrome-actions .btn{ font-size:11px; padding:2px 8px; line-height:1.35; }
+      .chrome-actions .btn-group .btn{ font-size:11px; padding:2px 7px; }
+      .chrome-actions .btn-link{ padding:2px 6px !important; font-size:11px !important; }
+      .panel-title{ font-weight:800; color:var(--primary); display:flex; align-items:center; gap:8px; }
+
+      .claim-scroll{ overflow:auto; flex:1 1 auto; min-height:0; background:var(--surface); }
+      .claim-table{ margin:0; table-layout:fixed; width:100%; }
+      .claim-table thead th{
+        position:sticky; top:0; z-index:2;
+        background:var(--primary);
+        color:#fff;
+        font-size:12px;
+        text-transform:uppercase;
+        letter-spacing:.06em;
+        font-weight:800;
+        border-color:rgba(255,255,255,.12);
+        padding:8px 10px;
+      }
+      .claim-table.density-compact thead th{
+        font-size:10px;
+        padding:6px 8px;
+        letter-spacing:.04em;
+      }
+      .claim-table tbody td{
+        vertical-align:top;
+        padding:8px 10px;
+        font-size:12px;
+        border-color:var(--border);
+      }
+      .claim-table.density-compact tbody td{
+        padding:6px 8px;
+      }
+      .claim-table tbody td:first-child{
+        padding-top:6px;
+        padding-left:12px;
+        position:relative;
+      }
+      .claim-row{ position:relative; background:#fff; transition: background-color .15s ease; }
+      .claim-row:nth-child(even){ background:#fbfcfe; }
+      .claim-row:hover{ background:#eef5ff; }
+
+      .strength-rail{ position:absolute; left:0; top:0; bottom:0; width:4px; background:transparent; }
+      .claim-row[data-strength="strong"] .strength-rail{ background:var(--success); }
+      .claim-row[data-strength="weak"] .strength-rail{ background:#ffc107; }
+      .claim-row[data-strength="missing"] .strength-rail{ background:var(--danger); }
+
+      /* Single-line compact meta: keeps first column readable */
+      .row-meta{
+        display:flex;
+        align-items:center;
+        gap:6px;
+        margin:0 0 5px;
+        width:100%;
+        min-width:0;
+      }
+      .row-meta-badges{
+        display:flex;
+        align-items:center;
+        flex-wrap:nowrap;
+        gap:4px;
+        min-width:0;
+        flex:1 1 auto;
+      }
+      .row-meta-tools{
+        flex:0 0 auto;
+        display:flex;
+        align-items:center;
+      }
+      .row-origin-mini{
+        font-size:9px;
+        font-weight:800;
+        letter-spacing:.04em;
+        text-transform:uppercase;
+        padding:1px 6px;
+        border-radius:4px;
+        line-height:1.35;
+        white-space:nowrap;
+        flex-shrink:0;
+        border:1px solid transparent;
+      }
+      .row-origin-mini.origin-upload{ background:#f1f5f9; color:#64748b; border-color:#e2e8f0; }
+      .row-origin-mini.origin-added{ background:#ede9fe; color:#5b21b6; border-color:#ddd6fe; }
+      .row-origin-mini.origin-proposed{ background:#fff7ed; color:#c2410c; border-color:#fed7aa; }
+      .row-strength-mini{
+        display:inline-flex;
+        align-items:center;
+        gap:3px;
+        font-size:9px;
+        font-weight:800;
+        color:#475569;
+        padding:1px 6px;
+        border-radius:4px;
+        line-height:1.35;
+        white-space:nowrap;
+        flex-shrink:0;
+        background:rgba(255,255,255,.95);
+        border:1px solid #e2e8f0;
+      }
+      .row-strength-mini .dot{
+        width:6px;
+        height:6px;
+        border-radius:50%;
+        flex-shrink:0;
+        background:#94a3b8;
+      }
+      .claim-row[data-strength="strong"] .row-strength-mini .dot{ background:var(--success); }
+      .claim-row[data-strength="weak"] .row-strength-mini .dot{ background:#ffc107; }
+      .claim-row[data-strength="missing"] .row-strength-mini .dot{ background:var(--danger); }
+      .row-edit-btn{
+        width:26px;
+        height:26px;
+        padding:0 !important;
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        border-radius:6px;
+        flex-shrink:0;
+        color:var(--accent) !important;
+        background:transparent;
+        border:0;
+        line-height:1;
+        opacity:.88;
+      }
+      .row-edit-btn:hover{ opacity:1; background:rgba(37,99,235,.08); }
+      .row-edit-btn i{ font-size:14px; }
+      .claim-table.density-compact .row-meta{ margin-bottom:4px; gap:4px; }
+      .claim-table.density-compact .row-origin-mini{ font-size:8px; padding:1px 5px; }
+      .claim-table.density-compact .row-strength-mini{ font-size:8px; padding:1px 5px; }
+      .claim-table.density-compact .row-edit-btn{ width:24px; height:24px; }
+      .claim-table.density-compact .row-edit-btn i{ font-size:13px; }
+      .claim-row.pending-new-row{ background:#faf5ff !important; box-shadow: inset 0 0 0 2px rgba(124,58,237,.22); }
+
+      .claim-row.is-active{ background:#e9f2ff !important; }
+      .claim-row.is-active .strength-rail{ animation: pulseRail 1.2s ease-in-out infinite; }
+      @keyframes pulseRail{
+        0%,100%{ box-shadow: 0 0 0 0 rgba(37,99,235,.0); }
+        50%{ box-shadow: 0 0 0 6px rgba(37,99,235,.18); }
+      }
+
+      .diff-old{ color:rgba(220,53,69,.85); text-decoration:line-through; }
+      .diff-new{ color:rgba(25,135,84,.95); font-weight:600; margin-top:6px; }
+      .diff-actions{ margin-top:8px; display:flex; gap:8px; flex-wrap:wrap; }
+      .cell-body{
+        max-height:6.5rem;
+        overflow:auto;
+        line-height:1.35;
+        word-break:break-word;
+      }
+      .claim-table.density-compact .cell-body{ max-height:4.75rem; font-size:11px; line-height:1.3; }
+      .claim-table.density-compact .diff-actions .btn{ font-size:10px; padding:2px 8px; }
+      .claim-table.density-comfort thead th{ font-size:12px; padding:10px 14px; }
+      .claim-table.density-comfort tbody td{ padding:11px 14px; font-size:13px; }
+      .claim-table.density-comfort .cell-body{ max-height:10rem; font-size:13px; }
+      .claim-table.density-comfort .row-origin-mini{ font-size:10px; padding:2px 7px; }
+      .claim-table.density-comfort .row-strength-mini{ font-size:10px; padding:2px 7px; }
+      .claim-table.density-comfort .row-strength-mini .dot{ width:7px; height:7px; }
+      .claim-table.density-comfort .row-edit-btn{ width:28px; height:28px; }
+      .claim-table.density-comfort .row-edit-btn i{ font-size:15px; }
+
+      .change-log{
+        max-height:5.5rem;
+        overflow:auto;
+        font-size:11px;
+        color:#334155;
+        background:#f8fafc;
+      }
+      .change-log .chg{
+        padding:6px 8px;
+        border-bottom:1px solid var(--border);
+        display:flex; align-items:flex-start; justify-content:space-between;
+        gap:8px;
+      }
+      .change-log .chg:last-child{ border-bottom:0; }
+      .chg-badge{ font-size:9px; font-weight:800; text-transform:uppercase; padding:2px 6px; border-radius:4px; flex-shrink:0; }
+      .chg-badge.applied{ background:#dcfce7; color:#166534; }
+      .chg-badge.undone{ background:#fef9c3; color:#854d0e; }
+      .chg-badge.superseded{ background:#f1f5f9; color:#64748b; }
+
+
+      /* Workspace charts/docs: default collapsed; expands from "Docs" control */
+      .chat-chrome-min{
+        flex:0 0 auto;
+        border-bottom:1px solid var(--border);
+        background:rgba(255,255,255,.94);
+        padding:2px 8px;
+      }
+      .chat-chrome-min-inner{
+        display:flex;
+        align-items:center;
+        gap:8px;
+        min-height:26px;
+      }
+      .chat-brand-compact{
+        font-weight:800;
+        font-size:14px;
+        letter-spacing:-0.03em;
+        background:linear-gradient(120deg, #1e3a5f 0%, #2563eb 45%, #6366f1 100%);
+        -webkit-background-clip:text;
+        background-clip:text;
+        color:transparent;
+        flex:0 0 auto;
+        line-height:1.2;
+      }
+      .chat-chrome-meta{
+        font-size:10px;
+        font-weight:700;
+        letter-spacing:.04em;
+        text-transform:uppercase;
+        color:#94a3b8;
+      }
+      .workspace-mini-bar{
+        flex:0 0 auto;
+        padding:2px 10px 3px;
+        border-bottom:1px solid rgba(226,232,240,.88);
+        background:rgba(248,250,252,.96);
+      }
+      .workspace-mini-text{
+        display:block;
+        font-size:11px;
+        font-weight:600;
+        color:#64748b;
+        line-height:1.35;
+      }
+      .workspace-bundle-panel{
+        flex:0 0 auto;
+        max-height:min(22vh, 200px);
+        overflow-y:auto;
+        overflow-x:hidden;
+        border-bottom:1px solid rgba(226,232,240,.9);
+        background:rgba(255,255,255,.72);
+        backdrop-filter:blur(8px);
+        scrollbar-width:thin;
+      }
+      #workspaceBundle{
+        padding:4px 8px 6px;
+      }
+      .workspace-expand-btn{
+        font-size:11px;
+        padding:2px 8px;
+        line-height:1.35;
+        flex-shrink:0;
+      }
+      .workspace-expand-btn .workspace-chevron{
+        transition:transform .2s ease;
+        vertical-align:-0.1em;
+      }
+      .workspace-expand-btn:not(.collapsed) .workspace-chevron{
+        transform:rotate(180deg);
+      }
+      .workspace-chart-bundle{
+        border-radius:8px;
+        border:1px solid rgba(226,232,240,.95);
+        background:rgba(255,255,255,.88);
+        padding:4px 6px;
+        margin-bottom:4px;
+      }
+      .workspace-chart-bundle.is-active-chart{
+        border-color:rgba(37,99,235,.45);
+        box-shadow:0 0 0 2px rgba(37,99,235,.08);
+        background:linear-gradient(180deg, #f8fbff 0%, #fff 100%);
+      }
+      .bundle-head{ margin-bottom:4px; }
+      .bundle-head .chip{ font-size:10px; padding:4px 9px; }
+      .bundle-docs-row{
+        display:flex;
+        align-items:center;
+        gap:6px;
+        flex-wrap:wrap;
+        padding-left:2px;
+      }
+      .bundle-docs-label{
+        font-size:8px; font-weight:800; letter-spacing:.05em;
+        text-transform:uppercase; color:#64748b;
+        flex:0 0 100%;
+        margin-bottom:1px;
+        line-height:1.2;
+      }
+      .bundle-doc-chips{ display:flex; flex-wrap:wrap; gap:5px; align-items:center; flex:1 1 auto; min-width:0; }
+      .bundle-doc-chips .chip{ font-size:10px; padding:3px 8px; }
+      .btn-add-doc-mini{
+        width:28px; height:28px;
+        border-radius:8px;
+        border:1px dashed #94a3b8;
+        background:#fff;
+        color:#475569;
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        flex-shrink:0;
+        padding:0;
+        line-height:1;
+      }
+      .btn-add-doc-mini:hover{ border-color:var(--accent); color:var(--accent); background:#f4f8ff; }
+      .workspace-unassigned{
+        border-radius:10px;
+        border:1px dashed #fcd34d;
+        background:#fffbeb;
+        padding:6px 8px;
+        margin-top:4px;
+      }
+      .workspace-unassigned .chip{ font-size:10px; }
+      .strip-chips{ display:flex; flex-wrap:wrap; gap:5px; align-items:center; }
+
+      .chat-brand-mark{
+        font-weight:800;
+        font-size:15px;
+        letter-spacing:-0.03em;
+        background:linear-gradient(120deg, #1e3a5f 0%, #2563eb 45%, #6366f1 100%);
+        -webkit-background-clip:text;
+        background-clip:text;
+        color:transparent;
+      }
+      .chat-brand-flair{
+        font-size:10px; font-weight:700;
+        color:#64748b;
+        letter-spacing:.02em;
+      }
+
+      .btn-composer-attach{
+        width:38px; height:38px;
+        padding:0;
+        border-radius:50%;
+        border:1px solid #cbd5e1;
+        background:#fff;
+        color:#334155;
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        flex-shrink:0;
+        transition: background .15s ease, border-color .15s ease, color .15s ease;
+      }
+      .btn-composer-attach:hover{ background:#f1f5f9; border-color:#94a3b8; color:#0f172a; }
+      .btn-composer-attach:focus-visible{ box-shadow:0 0 0 3px rgba(37,99,235,.2); }
+      .composer-attach-menu{
+        min-width:220px;
+        padding:6px;
+        border-radius:12px;
+        font-size:13px;
+      }
+      .composer-attach-menu .dropdown-item{
+        border-radius:8px;
+        padding:8px 12px;
+        font-size:12px;
+        font-weight:600;
+      }
+      .composer-attach-menu .dropdown-item i{ opacity:.75; }
+
+      .chip{
+        display:inline-flex; align-items:center; gap:8px;
+        padding:6px 10px;
+        border-radius:999px;
+        border:1px solid var(--border);
+        background:#fff;
+        font-size:12px; font-weight:700;
+        color:var(--primary);
+        white-space:nowrap;
+      }
+      .chip .x{
+        border:0; background:transparent;
+        color:var(--text-muted);
+        font-weight:900;
+        line-height:1;
+        padding:0 2px;
+        cursor:pointer;
+      }
+      .chip .x:hover{ color:#0f172a; }
+      .add-doc{
+        border:1px dashed var(--border);
+        background:#fff;
+        border-radius:10px;
+        padding:8px 10px;
+        font-size:12px;
+        font-weight:700;
+        color:var(--text-muted);
+        transition: all .12s ease;
+      }
+      .add-doc:hover{ border-color:rgba(37,99,235,.55); color:var(--primary); background:#f7fbff; }
+
+      .chat-shell{
+        min-height:0;
+        display:flex;
+        flex-direction:column;
+        flex:1 1 0%;
+        background:linear-gradient(165deg, #f8fafc 0%, #f1f5f9 48%, #eef2ff 100%);
+      }
+      .chat-top-meta{ font-size:10px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:#94a3b8; }
+      .chat-messages{
+        flex:1 1 0%;
+        min-height:0;
+        overflow:auto;
+        background:
+          radial-gradient(ellipse 80% 50% at 50% -20%, rgba(99,102,241,.08), transparent 55%),
+          radial-gradient(ellipse 60% 40% at 100% 100%, rgba(37,99,235,.06), transparent 45%),
+          linear-gradient(180deg, rgba(255,255,255,.72) 0%, rgba(248,250,252,.92) 100%);
+        padding:6px 10px 4px;
+        scroll-behavior:smooth;
+      }
+      .chat-empty{
+        display:flex; flex-direction:column; align-items:stretch; gap:10px;
+        padding:14px 12px; margin:4px 2px 10px;
+        border-radius:14px;
+        border:1px dashed rgba(148,163,184,.55);
+        background:rgba(255,255,255,.75);
+        backdrop-filter:blur(6px);
+      }
+      .chat-empty-title{ font-weight:800; font-size:13px; color:var(--primary); display:flex; align-items:center; gap:8px; }
+      .chat-empty-title .spark{ font-size:18px; line-height:1; }
+      .chat-empty p{ margin:0; font-size:11px; line-height:1.45; color:#64748b; }
+      .chat-hints{ display:flex; flex-wrap:wrap; gap:6px; margin-top:4px; }
+      .chat-hint{
+        font-size:10px; font-weight:700;
+        padding:3px 8px; border-radius:999px;
+        background:#fff; border:1px solid var(--border); color:#475569;
+      }
+      .msg{ display:flex; margin-bottom:6px; gap:6px; align-items:flex-end; opacity:0; animation: fadeIn .18s ease forwards; }
+      @keyframes fadeIn{ to{ opacity:1; } }
+      .msg.user{ justify-content:flex-end; }
+      .msg.ai{ justify-content:flex-start; }
+      .avatar{
+        width:24px;height:24px;border-radius:50%;
+        background:linear-gradient(135deg, #2563eb 0%, #4f46e5 100%);
+        color:#fff;
+        display:flex;align-items:center;justify-content:center;
+        font-size:14px; line-height:1; flex:0 0 auto;
+        box-shadow:0 2px 6px rgba(37,99,235,.25);
+      }
+      .bubble{
+        max-width:min(88%, 520px);
+        border-radius:14px;
+        padding:8px 11px;
+        border:1px solid var(--chat-ai-border);
+        background:var(--chat-ai-bg);
+        box-shadow:0 1px 2px rgba(15,23,42,.04);
+      }
+      .bubble.user{
+        background:linear-gradient(160deg, var(--chat-user) 0%, #2c5282 100%);
+        border-color:rgba(255,255,255,.12);
+        color:#fff;
+        max-width:min(82%, 420px);
+      }
+      .bubble .content{ margin:0; word-break:break-word; }
+      .bubble.ai .content > .chat-prose,
+      .bubble.ai .content.chat-prose{
+        font-size:11px;
+        line-height:1.42;
+        color:#334155;
+      }
+      .bubble.user .content > .chat-prose,
+      .bubble.user .content.chat-prose{
+        font-size:11px;
+        line-height:1.42;
+      }
+      .bubble .content.chat-prose strong{ font-weight:800; color:inherit; opacity:.95; }
+      .bubble.user .content.chat-prose strong{ color:#fff; }
+      .bubble.ai .content.chat-prose strong{ color:#0f172a; }
+      .timestamp{ font-size:9px; color:var(--text-muted); margin-top:4px; letter-spacing:.02em; }
+      .msg.user .timestamp{ text-align:right; color:rgba(255,255,255,.7); }
+
+      .lumenci-suggestion-stack{ display:flex; flex-direction:column; gap:6px; margin-top:8px; }
+      .lumenci-suggestion-card{
+        border-radius:10px;
+        overflow:hidden;
+        border:1px solid var(--border);
+        font-size:11px;
+        line-height:1.4;
+        background:#fff;
+        box-shadow:0 1px 3px rgba(15,23,42,.06);
+      }
+      .lumenci-suggestion-card .suggestion-card-head{
+        display:flex; align-items:center; justify-content:space-between; gap:8px;
+        padding:5px 8px;
+        background:var(--surface-2);
+        border-bottom:1px solid var(--border);
+      }
+      .lumenci-suggestion-card .suggestion-card-head .left{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; min-width:0; }
+      .field-pill{
+        font-size:9px; font-weight:800; letter-spacing:.04em; text-transform:uppercase;
+        padding:2px 7px; border-radius:999px; border:1px solid transparent; flex-shrink:0;
+      }
+      .field-pill-claim{ color:var(--sug-claim); background:var(--sug-claim-bg); border-color:#bfdbfe; }
+      .field-pill-evidence{ color:var(--sug-evidence); background:var(--sug-evidence-bg); border-color:#fde68a; }
+      .field-pill-reasoning{ color:var(--sug-reasoning); background:var(--sug-reasoning-bg); border-color:#ddd6fe; }
+      .row-pill{
+        font-size:9px; font-weight:800;
+        padding:2px 7px; border-radius:6px;
+        background:#e0e7ff; color:#3730a3;
+      }
+      .chat-diff-block{ padding:6px 8px 8px; display:flex; flex-direction:column; gap:5px; }
+      .chat-diff-line{
+        border-radius:8px; padding:5px 7px;
+        font-size:10px; line-height:1.4;
+        word-break:break-word;
+      }
+      .chat-diff-line .diff-tag{
+        display:block; font-size:8px; font-weight:800; letter-spacing:.06em; text-transform:uppercase;
+        margin-bottom:3px; opacity:.85;
+      }
+      .chat-diff-old{
+        background:var(--diff-old-bg);
+        border:1px solid var(--diff-old-border);
+        color:#991b1b;
+      }
+      .chat-diff-old .diff-tag{ color:#b91c1c; }
+      .chat-diff-new{
+        background:var(--diff-new-bg);
+        border:1px solid var(--diff-new-border);
+        color:#166534;
+      }
+      .chat-diff-new .diff-tag{ color:#15803d; }
+      .suggestion-card-foot{
+        font-size:10px; color:#64748b; padding:0 8px 8px;
+        display:flex; align-items:center; gap:6px;
+      }
+      .suggestion-card-foot i{ color:var(--accent); font-size:11px; }
+
+      .suggestion-card{
+        border:1px solid var(--border);
+        background:#fbfdff;
+        border-radius:12px;
+        padding:8px 10px;
+        margin-top:8px;
+        font-size:11px;
+      }
+      .suggestion-card .title{ font-weight:800; color:var(--primary); font-size:10px; text-transform:uppercase; letter-spacing:.04em; margin-bottom:4px; }
+
+      .composer{
+        flex:0 0 auto;
+        border-top:1px solid var(--border);
+        background:rgba(255,255,255,.92);
+        backdrop-filter:blur(8px);
+        padding:6px 10px 8px;
+      }
+      .quick-pills-toolbar{
+        display:flex;
+        align-items:center;
+        justify-content:flex-end;
+        margin:0 0 1px;
+      }
+      .quick-pills-toggle{
+        font-size:11px;
+        font-weight:700;
+        color:#64748b !important;
+        padding:1px 4px !important;
+      }
+      .quick-pills-toggle .bi-chevron-down{
+        transition:transform .2s ease;
+        vertical-align:-0.05em;
+      }
+      .quick-pills-toggle:not(.collapsed) .bi-chevron-down{
+        transform:rotate(180deg);
+      }
+      .quick-row{
+        display:flex;
+        gap:6px;
+        overflow-x:auto;
+        overflow-y:hidden;
+        padding:2px 0 4px;
+        margin-bottom:2px;
+        -webkit-overflow-scrolling:touch;
+        scrollbar-width:thin;
+      }
+      .quick-pill{
+        border:1px solid rgba(203,213,225,.95);
+        background:rgba(255,255,255,.9);
+        border-radius:999px;
+        padding:4px 9px;
+        font-size:10px;
+        font-weight:700;
+        color:var(--primary);
+        white-space:nowrap;
+        transition: background .12s ease, border-color .12s ease, transform .1s ease;
+      }
+      .quick-pill:hover{ background:#eef2ff; border-color:#a5b4fc; transform:translateY(-1px); }
+      .composer textarea{
+        resize:none; overflow:hidden;
+        min-height:38px; max-height:100px;
+        font-size:11px; padding:8px 11px;
+        border-radius:12px; border-color:#cbd5e1;
+        line-height:1.4;
+      }
+      .composer textarea:focus{ border-color:var(--accent); box-shadow:0 0 0 3px rgba(37,99,235,.12); }
+      .composer .btn-primary{ border-radius:12px; padding:8px 12px; }
+      .typing-wrap{ height:18px; margin-bottom:2px; }
+      .typing-indicator{
+        display:inline-flex; align-items:center; gap:5px;
+        padding:4px 9px;
+        border-radius:999px;
+        border:1px solid var(--border);
+        background:rgba(255,255,255,.95);
+      }
+      .typing-indicator span{
+        width:5px;height:5px;border-radius:50%;
+        background:var(--primary);
+        opacity:.35;
+        animation: bounceDot 1.05s infinite ease-in-out;
+      }
+      .typing-indicator span:nth-child(2){ animation-delay:.15s; }
+      .typing-indicator span:nth-child(3){ animation-delay:.30s; }
+      @keyframes bounceDot{
+        0%,80%,100%{ transform:translateY(0); opacity:.35; }
+        40%{ transform:translateY(-4px); opacity:.85; }
+      }
+
+      @media (max-width: 991.98px){
+        .app-main{ flex-direction:column; }
+        .panel-left, .panel-right{ width:100%; min-height:0; }
+        .panel-left{ border-right:0; border-bottom:1px solid var(--border); height:45%; }
+        .panel-right{ height:55%; }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="app-header">
+      <div class="container-fluid px-3 h-100 d-flex align-items-center justify-content-between">
+        <div class="brand flex-column align-items-start py-1">
+          <div class="d-flex align-items-center gap-2">
+            <div class="brand-title mb-0">Lumenci</div>
+            <span class="badge text-bg-primary brand-badge">Spark</span>
+          </div>
+          <div class="app-header-tagline d-none d-xl-block">Patent claim-chart analyst workbench</div>
+        </div>
+        <button class="btn btn-outline-secondary btn-sm border-secondary-subtle" data-bs-toggle="modal" data-bs-target="#exportModal" title="Export current chart to Word">
+          <i class="bi bi-file-earmark-word me-1"></i> Export Word
+        </button>
+      </div>
+    </header>
+
+    <main class="app-main">
+      <section class="panel panel-left">
+        <div class="chart-chrome">
+          <div class="chart-chrome-inner">
+            <div class="chrome-heading">
+              <span class="chrome-heading-eyebrow">Chart</span>
+              <span class="chrome-heading-title">Claim chart</span>
+              <span id="rowCountBadge" class="badge rounded-pill text-bg-light border border-secondary-subtle fw-semibold" style="font-size:10px">0 rows</span>
+            </div>
+            <div class="chrome-matter">
+              <span class="chrome-matter-label" id="matterLabel">Matter</span>
+              <select id="caseSelect" class="form-select form-select-sm matter-select" aria-labelledby="matterLabel" aria-describedby="caseSelectHelp"></select>
+              <button type="button" id="createCaseBtn" class="btn btn-sm btn-matter-new" title="New matter">
+                <i class="bi bi-folder-plus"></i><span class="d-none d-sm-inline ms-1">New</span>
+              </button>
+            </div>
+            <div class="chrome-actions">
+              <button type="button" id="undoChartBtn" class="btn btn-outline-secondary btn-sm" disabled title="Undo last accepted change">
+                <i class="bi bi-arrow-counterclockwise"></i><span class="d-none d-md-inline"> Undo</span>
+              </button>
+              <button type="button" id="redoChartBtn" class="btn btn-outline-secondary btn-sm" disabled title="Redo last undone change">
+                <i class="bi bi-arrow-clockwise"></i><span class="d-none d-md-inline"> Redo</span>
+              </button>
+              <div class="btn-group btn-group-sm" role="group" aria-label="Table density">
+                <button type="button" class="btn btn-outline-secondary active" id="densityCompactBtn" title="Compact table density">Dense</button>
+                <button type="button" class="btn btn-outline-secondary" id="densityComfortBtn" title="Comfortable table density">Wide</button>
+              </div>
+              <button type="button" class="btn btn-link btn-sm text-decoration-none" data-bs-toggle="collapse" data-bs-target="#changeHistoryCollapse" title="Edit history">
+                Log
+              </button>
+            </div>
+            <span id="caseSelectHelp" class="visually-hidden">Choose the matter whose claim charts and documents load in this workspace.</span>
+          </div>
+        </div>
+        <div class="collapse border-bottom" id="changeHistoryCollapse">
+          <div id="changeLogBody" class="change-log">Select a claim chart to view tracked edits.</div>
+        </div>
+
+        <div id="claimScroll" class="claim-scroll">
+          <table id="claimTable" class="table claim-table table-hover align-top density-compact">
+            <thead>
+              <tr>
+                <th style="width:28%">Patent Claim Element</th>
+                <th style="width:36%">Accused Product Feature / Evidence</th>
+                <th style="width:36%">AI Reasoning</th>
+              </tr>
+            </thead>
+            <tbody id="claimChartTbody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel panel-right">
+        <div class="chat-shell">
+          <div class="chat-chrome-min">
+            <div class="chat-chrome-min-inner">
+              <span class="chat-brand-compact">Lumenci Spark</span>
+              <span class="chat-chrome-meta d-none d-lg-inline">Matter copilot</span>
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-secondary workspace-expand-btn collapsed ms-auto"
+                data-bs-toggle="collapse"
+                data-bs-target="#workspaceBundleCollapse"
+                aria-expanded="false"
+                aria-controls="workspaceBundleCollapse"
+                title="Show charts &amp; technical documents (per claim chart)"
+              >
+                <i class="bi bi-paperclip" aria-hidden="true"></i>
+                <span class="d-none d-sm-inline ms-1">Docs</span>
+                <i class="bi bi-chevron-down small workspace-chevron ms-1" aria-hidden="true"></i>
+              </button>
+            </div>
+          </div>
+          <div class="workspace-mini-bar">
+            <span
+              id="workspaceSummaryText"
+              class="workspace-mini-text"
+              title="Charts and technical documents for the selected matter"
+              >Pick a matter to attach technical documents per chart.</span>
+          </div>
+          <div class="collapse" id="workspaceBundleCollapse">
+            <div class="workspace-bundle-panel">
+              <div id="workspaceBundle" aria-label="Claim charts and their supporting technical documents"></div>
+            </div>
+          </div>
+
+          <div id="chatMessages" class="chat-messages"></div>
+
+          <div class="composer">
+            <input id="chartFileInput" type="file" class="d-none" accept=".xlsx,.csv,.png,.webp,.jpg,.jpeg,.pdf,.doc,.docx" />
+            <input id="docFileInput" type="file" class="d-none" accept=".pdf,.doc,.docx,.png,.webp,.jpg,.jpeg,.txt" />
+
+            <div class="typing-wrap">
+              <div id="typingIndicator" class="typing-indicator d-none" aria-label="AI typing indicator">
+                <span></span><span></span><span></span>
+              </div>
+            </div>
+
+            <div class="quick-pills-toolbar">
+              <button
+                type="button"
+                class="btn btn-link btn-sm quick-pills-toggle collapsed"
+                data-bs-toggle="collapse"
+                data-bs-target="#quickPillsCollapse"
+                aria-expanded="false"
+                aria-controls="quickPillsCollapse"
+                title="Show quick message shortcuts"
+              >
+                Shortcuts <i class="bi bi-chevron-down" aria-hidden="true"></i>
+              </button>
+            </div>
+            <div class="collapse" id="quickPillsCollapse">
+              <div class="quick-row" id="quickRow">
+                <button
+                  type="button"
+                  class="quick-pill"
+                  data-chip="🔍 Strengthen evidence"
+                  title="Targets Weak/Missing rows only. Rows you marked Strong are left alone unless you ask for alternate wording or a full-chart review."
+                >
+                  🔍 Strengthen evidence
+                </button>
+                <button
+                  type="button"
+                  class="quick-pill"
+                  data-chip="✏️ Fix weak reasoning"
+                  title="Targets Weak/Missing rows only. Strong rows are skipped as chart edits unless you explicitly want optional alternates."
+                >
+                  ✏️ Fix weak reasoning
+                </button>
+                <button class="quick-pill" data-chip="➕ Add missing feature">➕ Add missing feature</button>
+                <button
+                  class="quick-pill"
+                  data-chip="⚖️ Clarify reasoning for claim construction—tighter legal wording where element boundaries matter"
+                  title="Asks Spark to tighten reasoning for potential claim-construction arguments (wording only)"
+                >
+                  ⚖️ Clarify legal wording
+                </button>
+                <button class="quick-pill" data-chip="↩ Undo last change">↩ Undo last change</button>
+                <button class="quick-pill" data-chip="↪ Redo last change">↪ Redo last change</button>
+                <button class="quick-pill" data-chip="📋 Summarize chart">📋 Summarize chart</button>
+              </div>
+            </div>
+
+            <div class="d-flex align-items-end gap-2">
+              <div class="dropup">
+                <button
+                  type="button"
+                  class="btn-composer-attach"
+                  id="composerAttachBtn"
+                  data-bs-toggle="dropdown"
+                  data-bs-auto-close="outside"
+                  aria-expanded="false"
+                  aria-label="Add files and workspace options"
+                  title="Add claim chart, product doc, instructions, or admin"
+                >
+                  <i class="bi bi-plus-lg" style="font-size:1.15rem"></i>
+                </button>
+                <ul class="dropdown-menu composer-attach-menu shadow-lg mb-1" aria-labelledby="composerAttachBtn">
+                  <li>
+                    <button type="button" class="dropdown-item" id="attachAddChartBtn">
+                      <i class="bi bi-table me-2"></i>Add <strong>claim chart</strong> file (Excel / chart table)…
+                    </button>
+                  </li>
+                  <li>
+                    <button type="button" class="dropdown-item" id="attachAddDocBtn">
+                      <i class="bi bi-file-earmark-text me-2"></i>Add <strong>technical / product</strong> doc to active chart…
+                    </button>
+                  </li>
+                  <li>
+                    <button type="button" class="dropdown-item" id="attachAddUrlBtn">
+                      <i class="bi bi-link-45deg me-2"></i>Add evidence from <strong>public URL</strong> (web capture)…
+                    </button>
+                  </li>
+                  <li><hr class="dropdown-divider my-1" /></li>
+                  <li>
+                    <button type="button" class="dropdown-item" id="attachInstructionsBtn">
+                      <i class="bi bi-sliders me-2"></i>Custom instructions
+                    </button>
+                  </li>
+                  <li>
+                    <button type="button" class="dropdown-item" id="attachWorkspaceBtn">
+                      <i class="bi bi-gear me-2"></i>Workspace &amp; admin
+                    </button>
+                  </li>
+                </ul>
+              </div>
+              <textarea id="chatInput" class="form-control flex-grow-1" rows="1" placeholder="Message Lumenci Spark…"></textarea>
+              <button id="sendBtn" class="btn btn-primary" style="background:var(--primary); border-color:var(--primary);">
+                <i class="bi bi-arrow-up"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Custom instructions (ChatGPT-style, no accordion) -->
+    <div class="modal fade" id="instructionsModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header py-2 border-0 pb-0">
+            <h5 class="modal-title fs-6 fw-bold">Custom instructions</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body pt-2">
+            <p class="small text-muted mb-2">Steer how Spark answers (tone, focus, claim vs product emphasis). Saved to the active chart.</p>
+            <label class="form-label small fw-semibold text-muted visually-hidden" for="systemInstructions">Instructions</label>
+            <textarea
+              id="systemInstructions"
+              class="form-control form-control-sm"
+              rows="5"
+              placeholder="e.g. Hardware-only focus, formal claim-chart language, cite exhibit IDs when possible…"
+            ></textarea>
+          </div>
+          <div class="modal-footer py-2 border-0 pt-0">
+            <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+            <button type="button" class="btn btn-sm btn-primary" id="saveInstructionsBtn">Save to chart</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Capture technical evidence from a URL (assessment: web scraping for analysts) -->
+    <div class="modal fade" id="addUrlModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header py-2 border-0 pb-0">
+            <h5 class="modal-title fs-6 fw-bold">Add evidence from URL</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body pt-2">
+            <p class="small text-muted mb-2">
+              Fetches the public page and stores readable text as technical context for the <strong>active</strong> claim chart (same as uploaded docs).
+              Private networks and localhost are blocked.
+            </p>
+            <label class="form-label small fw-semibold text-muted" for="productUrlInput">Page URL (https://…)</label>
+            <input
+              type="url"
+              id="productUrlInput"
+              class="form-control form-control-sm"
+              placeholder="https://example.com/product/specs"
+              autocomplete="off"
+            />
+          </div>
+          <div class="modal-footer py-2 border-0 pt-0">
+            <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="button" class="btn btn-sm btn-primary" id="saveProductUrlBtn">Capture &amp; attach</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Workspace & administration -->
+    <div class="modal fade" id="workspaceAdminModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header py-2">
+            <h5 class="modal-title fs-6 fw-bold">Workspace &amp; admin</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body small">
+            <p class="text-muted mb-3">Cases, charts, documents, and maintenance actions (Django admin is not used for these models).</p>
+            <div class="fw-semibold text-muted mb-1">Case</div>
+            <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+              <input type="text" id="adminCaseName" class="form-control form-control-sm" style="max-width:240px" placeholder="Case name" autocomplete="off" />
+              <button type="button" class="btn btn-sm btn-outline-primary" id="adminCaseRenameBtn">Rename case</button>
+              <button type="button" class="btn btn-sm btn-outline-danger" id="adminCaseDeleteBtn">Delete case</button>
+            </div>
+            <div class="fw-semibold text-muted mb-1">Selected claim chart</div>
+            <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+              <input type="text" id="adminChartName" class="form-control form-control-sm" style="max-width:240px" placeholder="Chart title" autocomplete="off" />
+              <button type="button" class="btn btn-sm btn-outline-primary" id="adminChartRenameBtn">Rename chart</button>
+              <a id="adminChartSourceLink" class="btn btn-sm btn-outline-secondary disabled" href="#" target="_blank" rel="noopener">Source file</a>
+            </div>
+            <div class="d-flex flex-wrap gap-2 mb-2">
+              <button type="button" class="btn btn-sm btn-outline-secondary" id="adminAddEmptyRowBtn">Add empty row</button>
+              <button type="button" class="btn btn-sm btn-outline-warning" id="adminClearChatBtn">Clear chat</button>
+              <button type="button" class="btn btn-sm btn-outline-warning" id="adminClearHistoryBtn">Clear edit history</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Edit row (admin) -->
+    <div class="modal fade" id="rowEditModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header py-2">
+            <h5 class="modal-title fs-6">Edit row <span id="rowEditTitle"></span></h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <input type="hidden" id="rowEditIndex" value="" />
+            <div class="mb-2">
+              <label class="form-label small fw-semibold" for="rowEditClaim">Patent claim element</label>
+              <textarea id="rowEditClaim" class="form-control form-control-sm" rows="2"></textarea>
+            </div>
+            <div class="mb-2">
+              <label class="form-label small fw-semibold" for="rowEditEvidence">Evidence</label>
+              <textarea id="rowEditEvidence" class="form-control form-control-sm" rows="2"></textarea>
+            </div>
+            <div class="mb-2">
+              <label class="form-label small fw-semibold" for="rowEditReasoning">Reasoning</label>
+              <textarea id="rowEditReasoning" class="form-control form-control-sm" rows="2"></textarea>
+            </div>
+            <div class="row g-2">
+              <div class="col-md-6">
+                <label class="form-label small fw-semibold" for="rowEditStrength">Strength</label>
+                <select id="rowEditStrength" class="form-select form-select-sm">
+                  <option value="">Auto-assess strength</option>
+                  <option value="strong">Strong</option>
+                  <option value="weak">Weak</option>
+                  <option value="missing">Missing</option>
+                </select>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label small fw-semibold" for="rowEditOrigin">Origin</label>
+                <select id="rowEditOrigin" class="form-select form-select-sm">
+                  <option value="upload">Original upload</option>
+                  <option value="added">Added</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer py-2">
+            <button type="button" class="btn btn-sm btn-outline-danger me-auto" id="rowEditDeleteBtn">Delete row</button>
+            <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="button" class="btn btn-sm btn-primary" id="rowEditSaveBtn">Save</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Export modal -->
+    <div class="modal fade" id="exportModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Export Claim Chart</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            Downloads the <strong>saved</strong> chart for the case (all rows in the database). Accept any AI “proposed” rows in the grid first so they are included.
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="button" class="btn btn-primary" id="exportDownloadBtn">Download .docx</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3">
+      <div id="appToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-header">
+          <strong class="me-auto">Lumenci Spark</strong>
+          <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+        <div id="toastBody" class="toast-body">—</div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+      (() => {
+        const state = { cases: [], activeCaseId: null, activeChartId: null, activeChart: null };
+        const ui = {
+          activeRowId: null,
+          pendingSuggestions: [],
+          pendingNewRows: [],
+          typingTimer: null,
+          tableDensity: "compact",
+          pendingDocChartId: null,
+          pendingUrlChartId: null,
+        };
+        const el = {
+          claimTbody: document.getElementById("claimChartTbody"),
+          claimTable: document.getElementById("claimTable"),
+          rowCountBadge: document.getElementById("rowCountBadge"),
+          caseSelect: document.getElementById("caseSelect"),
+          createCaseBtn: document.getElementById("createCaseBtn"),
+          undoChartBtn: document.getElementById("undoChartBtn"),
+          redoChartBtn: document.getElementById("redoChartBtn"),
+          densityCompactBtn: document.getElementById("densityCompactBtn"),
+          densityComfortBtn: document.getElementById("densityComfortBtn"),
+          changeLogBody: document.getElementById("changeLogBody"),
+          workspaceBundle: document.getElementById("workspaceBundle"),
+          workspaceSummaryText: document.getElementById("workspaceSummaryText"),
+          chartFileInput: document.getElementById("chartFileInput"),
+          docFileInput: document.getElementById("docFileInput"),
+          composerAttachBtn: document.getElementById("composerAttachBtn"),
+          attachAddChartBtn: document.getElementById("attachAddChartBtn"),
+          attachAddDocBtn: document.getElementById("attachAddDocBtn"),
+          attachAddUrlBtn: document.getElementById("attachAddUrlBtn"),
+          productUrlInput: document.getElementById("productUrlInput"),
+          saveProductUrlBtn: document.getElementById("saveProductUrlBtn"),
+          attachInstructionsBtn: document.getElementById("attachInstructionsBtn"),
+          attachWorkspaceBtn: document.getElementById("attachWorkspaceBtn"),
+          systemInstructions: document.getElementById("systemInstructions"),
+          saveInstructionsBtn: document.getElementById("saveInstructionsBtn"),
+          chatMessages: document.getElementById("chatMessages"),
+          chatInput: document.getElementById("chatInput"),
+          sendBtn: document.getElementById("sendBtn"),
+          typing: document.getElementById("typingIndicator"),
+          toast: document.getElementById("appToast"),
+          toastBody: document.getElementById("toastBody"),
+          adminCaseName: document.getElementById("adminCaseName"),
+          adminCaseRenameBtn: document.getElementById("adminCaseRenameBtn"),
+          adminCaseDeleteBtn: document.getElementById("adminCaseDeleteBtn"),
+          adminChartName: document.getElementById("adminChartName"),
+          adminChartRenameBtn: document.getElementById("adminChartRenameBtn"),
+          adminChartSourceLink: document.getElementById("adminChartSourceLink"),
+          adminAddEmptyRowBtn: document.getElementById("adminAddEmptyRowBtn"),
+          adminClearChatBtn: document.getElementById("adminClearChatBtn"),
+          adminClearHistoryBtn: document.getElementById("adminClearHistoryBtn"),
+          rowEditModal: document.getElementById("rowEditModal"),
+          rowEditTitle: document.getElementById("rowEditTitle"),
+          rowEditIndex: document.getElementById("rowEditIndex"),
+          rowEditClaim: document.getElementById("rowEditClaim"),
+          rowEditEvidence: document.getElementById("rowEditEvidence"),
+          rowEditReasoning: document.getElementById("rowEditReasoning"),
+          rowEditStrength: document.getElementById("rowEditStrength"),
+          rowEditOrigin: document.getElementById("rowEditOrigin"),
+          rowEditSaveBtn: document.getElementById("rowEditSaveBtn"),
+          rowEditDeleteBtn: document.getElementById("rowEditDeleteBtn"),
+          exportModal: document.getElementById("exportModal"),
+          exportDownloadBtn: document.getElementById("exportDownloadBtn"),
+        };
+
+        const rowEditModalBs = () => bootstrap.Modal.getOrCreateInstance(el.rowEditModal);
+
+        function escapeHtml(s) {
+          return (s ?? "")
+            .replaceAll("&", "&amp;")
+            .replaceAll("<", "&lt;")
+            .replaceAll(">", "&gt;")
+            .replaceAll('"', "&quot;")
+            .replaceAll("'", "&#039;");
+        }
+
+        const LUMENCI_SUG_START = "<<<LUMENCI_SUG>>>";
+        const LUMENCI_SUG_END = "<<<END_LUMENCI_SUG>>>";
+
+        function stripLumenciMachineBlocks(raw) {
+          let t = raw || "";
+          const i = t.indexOf(LUMENCI_SUG_START);
+          if (i !== -1) {
+            const j = t.indexOf(LUMENCI_SUG_END, i);
+            if (j !== -1) t = (t.slice(0, i) + t.slice(j + LUMENCI_SUG_END.length)).trimEnd();
+          }
+          t = t.replace(/<lumenci_suggestion_json>[\s\S]*?<\/lumenci_suggestion_json>/gi, "").trimEnd();
+          return t;
+        }
+
+        function formatChatProse(text) {
+          const esc = escapeHtml(stripLumenciMachineBlocks(text || ""));
+          const bolded = esc.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+          return bolded.replace(/\n/g, "<br>");
+        }
+
+        function fieldPillClass(field) {
+          if (field === "claim") return "field-pill field-pill-claim";
+          if (field === "evidence") return "field-pill field-pill-evidence";
+          return "field-pill field-pill-reasoning";
+        }
+
+        function fieldLabel(field) {
+          if (field === "claim") return "Claim element";
+          if (field === "evidence") return "Evidence";
+          return "Reasoning";
+        }
+
+        function buildSuggestionCardsHtml(suggestions) {
+          if (!suggestions || !suggestions.length) return "";
+          const cards = suggestions.map((s) => {
+            const rowId = Number(s.row_id);
+            const f = (s.field || "reasoning").toLowerCase();
+            const oldT = (s.old_text || "").trim() || "—";
+            const newT = (s.new_text || "").trim() || "—";
+            return (
+              `<div class="lumenci-suggestion-card">` +
+              `<div class="suggestion-card-head">` +
+              `<div class="left">` +
+              `<span class="row-pill">Row ${rowId}</span>` +
+              `<span class="${fieldPillClass(f)}">${escapeHtml(fieldLabel(f))}</span>` +
+              `</div></div>` +
+              `<div class="chat-diff-block">` +
+              `<div class="chat-diff-line chat-diff-old"><span class="diff-tag">Before</span>${escapeHtml(oldT)}</div>` +
+              `<div class="chat-diff-line chat-diff-new"><span class="diff-tag">After</span>${escapeHtml(newT)}</div>` +
+              `</div>` +
+              `<div class="suggestion-card-foot">` +
+              `<i class="bi bi-layout-split"></i>` +
+              `<span>Compare in the chart — <strong>Accept</strong> or <strong>Reject</strong> there.</span>` +
+              `</div></div>`
+            );
+          });
+          return `<div class="lumenci-suggestion-stack">${cards.join("")}</div>`;
+        }
+
+        function parseEmbeddedSuggestions(raw) {
+          const i = (raw || "").indexOf(LUMENCI_SUG_START);
+          if (i === -1) return { prose: raw || "", suggestions: null };
+          const j = raw.indexOf(LUMENCI_SUG_END, i);
+          if (j === -1) return { prose: raw || "", suggestions: null };
+          const prose = raw.slice(0, i).trimEnd();
+          let suggestions = null;
+          try {
+            const payload = JSON.parse(decodeURIComponent(raw.slice(i + LUMENCI_SUG_START.length, j)));
+            if (payload && Array.isArray(payload.suggestions)) suggestions = payload.suggestions;
+          } catch {
+            suggestions = null;
+          }
+          const tail = raw.slice(j + LUMENCI_SUG_END.length).trim();
+          return { prose, suggestions, tail };
+        }
+
+        function renderAssistantBubbleHtml(raw) {
+          const { prose, suggestions, tail } = parseEmbeddedSuggestions(raw);
+          const parts = [`<div class="chat-prose">${formatChatProse(prose)}</div>`];
+          if (suggestions && suggestions.length) parts.push(buildSuggestionCardsHtml(suggestions));
+          else {
+            const legacy = (raw || "").match(/<suggestion_card>([\s\S]*?)<\/suggestion_card>/i);
+            if (legacy) {
+              parts.push(
+                `<div class="suggestion-card"><div class="title">Suggested update</div><div class="chat-prose">${formatChatProse(legacy[1].trim())}</div></div>`
+              );
+            }
+          }
+          if (tail) parts.push(`<div class="chat-prose">${formatChatProse(tail)}</div>`);
+          return `<div class="content">${parts.join("")}</div>`;
+        }
+
+        function toast(msg) {
+          el.toastBody.textContent = msg;
+          bootstrap.Toast.getOrCreateInstance(el.toast, { delay: 2200 }).show();
+        }
+
+        function strengthTitle(strength) {
+          if (strength === "strong") return "Strong";
+          if (strength === "weak") return "Weak";
+          return "Missing";
+        }
+        function strengthAbbrev(strength) {
+          if (strength === "strong") return "S";
+          if (strength === "weak") return "W";
+          return "M";
+        }
+        function originTitle(origin) {
+          if (origin === "added") return "Added row";
+          return "Original upload";
+        }
+        function originAbbrev(origin) {
+          if (origin === "added") return "New";
+          return "Orig";
+        }
+
+        function syncUndoRedoButtons() {
+          const h = state.activeChart && state.activeChart.history_controls;
+          el.undoChartBtn.disabled = !(h && h.can_undo);
+          el.redoChartBtn.disabled = !(h && h.can_redo);
+        }
+
+        function applyTableDensity() {
+          const compact = ui.tableDensity === "compact";
+          el.claimTable.classList.toggle("density-compact", compact);
+          el.claimTable.classList.toggle("density-comfort", !compact);
+          el.densityCompactBtn.classList.toggle("active", compact);
+          el.densityComfortBtn.classList.toggle("active", !compact);
+        }
+
+        async function refreshChangeLog() {
+          if (!state.activeChartId) {
+            el.changeLogBody.textContent = "Select a claim chart to view tracked edits.";
+            return;
+          }
+          try {
+            const data = await apiGet(`/api/claim-charts/${state.activeChartId}/history?limit=60`);
+            if (!data.ok) return;
+            const rows = data.changes || [];
+            if (!rows.length) {
+              el.changeLogBody.innerHTML = '<div class="px-2 py-2 text-muted">No accepted edits recorded yet.</div>';
+              return;
+            }
+            el.changeLogBody.innerHTML = rows
+              .map((c) => {
+                const badgeCls = c.status === "applied" ? "applied" : c.status === "undone" ? "undone" : "superseded";
+                const time = (c.created_at || "").replace("T", " ").slice(0, 19);
+                const prev = c.preview ? `<div class="text-muted small mt-1" style="font-style:italic">${escapeHtml(c.preview)}</div>` : "";
+                return `<div class="chg"><div><div class="fw-semibold">${escapeHtml(c.summary)}</div><div class="small text-muted">${escapeHtml(time)}</div>${prev}</div><span class="chg-badge ${badgeCls}">${escapeHtml(c.status)}</span></div>`;
+              })
+              .join("");
+          } catch {
+            el.changeLogBody.textContent = "Could not load change log.";
+          }
+        }
+
+        function formatTime(ts) {
+          try {
+            const d = new Date(ts || Date.now());
+            return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+          } catch {
+            return "";
+          }
+        }
+
+        function autoExpandTextarea(ta) {
+          ta.style.height = "auto";
+          ta.style.height = Math.min(ta.scrollHeight, 120) + "px";
+        }
+
+        async function apiGet(url) {
+          const r = await fetch(url);
+          return await r.json();
+        }
+
+        async function apiPostJson(url, payload) {
+          const r = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload || {}),
+          });
+          return await r.json();
+        }
+
+        function getActiveCase() {
+          return state.cases.find((c) => c.id === state.activeCaseId) || null;
+        }
+
+        function findProductDocMeta(docId) {
+          const c = getActiveCase();
+          if (!c) return null;
+          for (const ch of c.claim_charts || []) {
+            const doc = (ch.product_docs || []).find((x) => x.id === docId);
+            if (doc) return { doc, chartId: ch.id };
+          }
+          for (const doc of c.unassigned_product_docs || []) {
+            if (doc.id === docId) return { doc, chartId: null };
+          }
+          const flat = (c.product_docs || []).find((x) => x.id === docId);
+          if (flat) return { doc: flat, chartId: flat.claim_chart_id || null };
+          return null;
+        }
+
+        function renderAdminPanel() {
+          const c = getActiveCase();
+          el.adminCaseName.value = c ? c.name : "";
+          if (state.activeChart && state.activeChartId) {
+            el.adminChartName.value = state.activeChart.name || "";
+            const u = state.activeChart.source_file_url || "";
+            if (u) {
+              el.adminChartSourceLink.href = u;
+              el.adminChartSourceLink.classList.remove("disabled");
+            } else {
+              el.adminChartSourceLink.href = "#";
+              el.adminChartSourceLink.classList.add("disabled");
+            }
+          } else {
+            el.adminChartName.value = "";
+            el.adminChartSourceLink.href = "#";
+            el.adminChartSourceLink.classList.add("disabled");
+          }
+        }
+
+        function renderCaseSelect() {
+          el.caseSelect.innerHTML = "";
+          state.cases.forEach((c) => {
+            const opt = document.createElement("option");
+            opt.value = String(c.id);
+            opt.textContent = c.name;
+            el.caseSelect.appendChild(opt);
+          });
+          if (state.activeCaseId != null) el.caseSelect.value = String(state.activeCaseId);
+        }
+
+        function updateWorkspaceSummary(c, charts) {
+          const sumEl = el.workspaceSummaryText;
+          if (!sumEl) return;
+          if (!c) {
+            sumEl.textContent = "Pick a matter to attach technical documents per chart.";
+            return;
+          }
+          const list = charts || c.claim_charts || [];
+          if (!list.length) {
+            sumEl.textContent = "No charts yet — use + to upload a claim chart, then open Docs to attach files.";
+            return;
+          }
+          let docs = 0;
+          list.forEach((x) => {
+            docs += (x.product_docs || []).length;
+          });
+          const loose = (c.unassigned_product_docs || []).length;
+          const active = list.find((x) => x.id === state.activeChartId);
+          const activeName = active ? active.name : "none selected";
+          let s = `${list.length} chart${list.length === 1 ? "" : "s"} · ${docs} technical doc${docs === 1 ? "" : "s"} · Active: ${activeName}`;
+          if (loose) s += ` · ${loose} unassigned`;
+          sumEl.textContent = s;
+        }
+
+        function expandWorkspacePanel() {
+          const pane = document.getElementById("workspaceBundleCollapse");
+          if (!pane) return;
+          try {
+            bootstrap.Collapse.getOrCreateInstance(pane, { toggle: false }).show();
+          } catch (_) {
+            pane.classList.add("show");
+          }
+        }
+
+        function productDocOpenLinkHtml(d) {
+          const surl = ((d && d.source_url) || "").trim();
+          const furl = ((d && d.file_url) || "").trim();
+          const href = surl || furl;
+          if (!href) return "";
+          const title = surl ? "Open source URL" : "Download file";
+          const icon = surl ? "🔗" : "⬇";
+          return `<a href="${escapeHtml(href)}" class="x text-decoration-none" target="_blank" rel="noopener noreferrer" title="${title}">${icon}</a>`;
+        }
+
+        function openAddUrlModal(forChartId) {
+          ui.pendingUrlChartId = forChartId != null && forChartId !== "" ? Number(forChartId) : null;
+          if (el.productUrlInput) el.productUrlInput.value = "";
+          expandWorkspacePanel();
+          bootstrap.Modal.getOrCreateInstance(document.getElementById("addUrlModal")).show();
+          setTimeout(() => el.productUrlInput && el.productUrlInput.focus(), 400);
+        }
+
+        function renderDocs() {
+          el.workspaceBundle.innerHTML = "";
+          const c = getActiveCase();
+          if (!c) {
+            updateWorkspaceSummary(null, null);
+            return;
+          }
+          const charts = c.claim_charts || [];
+          updateWorkspaceSummary(c, charts);
+          if (!charts.length) {
+            el.workspaceBundle.innerHTML =
+              '<div class="text-muted small px-1 py-2">No claim charts in this case yet — upload one with <strong>+</strong>, then attach technical docs under that chart.</div>';
+            return;
+          }
+          charts.forEach((x) => {
+            const wrap = document.createElement("div");
+            wrap.className = "workspace-chart-bundle";
+            if (state.activeChartId && x.id === state.activeChartId) wrap.classList.add("is-active-chart");
+
+            const head = document.createElement("div");
+            head.className = "bundle-head";
+            const chip = document.createElement("span");
+            chip.className = "chip";
+            const dl =
+              x.source_file_url
+                ? `<a href="${escapeHtml(x.source_file_url)}" class="x text-decoration-none" target="_blank" rel="noopener" title="Source file" data-action="source-download" data-chart-id="${x.id}">⬇</a>`
+                : `<span class="x text-muted" title="No file">·</span>`;
+            chip.innerHTML =
+              `<span class="me-1" aria-hidden="true">📄</span>${escapeHtml(x.name)} <span class="text-muted">(${escapeHtml(x.status || "uploaded")})</span> ` +
+              dl +
+              `<button type="button" class="x" data-action="rename-chart" data-chart-id="${x.id}" title="Rename chart">✎</button>` +
+              `<button type="button" class="x" data-action="select-chart" data-chart-id="${x.id}" aria-label="Select claim chart">⇄</button>` +
+              `<button type="button" class="x" data-action="delete-chart" data-chart-id="${x.id}" aria-label="Delete claim chart">🗑</button>`;
+            head.appendChild(chip);
+            wrap.appendChild(head);
+
+            const docRow = document.createElement("div");
+            docRow.className = "bundle-docs-row";
+
+            const lab = document.createElement("div");
+            lab.className = "bundle-docs-label";
+            lab.textContent = "Technical docs & captured URLs (AI context for this chart)";
+            docRow.appendChild(lab);
+
+            const docHost = document.createElement("div");
+            docHost.className = "bundle-doc-chips";
+            (x.product_docs || []).forEach((d) => {
+              const dchip = document.createElement("span");
+              dchip.className = "chip";
+              dchip.innerHTML =
+                `📎 ${escapeHtml(d.name)} ` +
+                productDocOpenLinkHtml(d) +
+                `<button type="button" class="x" data-action="rename-doc" data-doc-id="${d.id}" title="Rename">✎</button>` +
+                `<button type="button" class="x" data-action="delete-doc" data-doc-id="${d.id}" aria-label="Remove document">×</button>`;
+              docHost.appendChild(dchip);
+            });
+            docRow.appendChild(docHost);
+
+            const addWrap = document.createElement("div");
+            addWrap.className = "d-inline-flex align-items-center gap-1 flex-shrink-0";
+            const addBtn = document.createElement("button");
+            addBtn.type = "button";
+            addBtn.className = "btn-add-doc-mini";
+            addBtn.setAttribute("data-add-doc-for-chart", String(x.id));
+            addBtn.title = "Upload a technical / product file for this chart";
+            addBtn.innerHTML = '<i class="bi bi-plus-lg"></i>';
+            const addUrlBtn = document.createElement("button");
+            addUrlBtn.type = "button";
+            addUrlBtn.className = "btn-add-doc-mini";
+            addUrlBtn.setAttribute("data-add-url-for-chart", String(x.id));
+            addUrlBtn.title = "Capture text from a public URL for this chart";
+            addUrlBtn.innerHTML = '<i class="bi bi-link-45deg"></i>';
+            addWrap.appendChild(addBtn);
+            addWrap.appendChild(addUrlBtn);
+            docRow.appendChild(addWrap);
+
+            wrap.appendChild(docRow);
+            el.workspaceBundle.appendChild(wrap);
+          });
+
+          const loose = c.unassigned_product_docs || [];
+          if (loose.length) {
+            const sec = document.createElement("div");
+            sec.className = "workspace-unassigned";
+            const title = document.createElement("div");
+            title.className = "bundle-docs-label text-warning";
+            title.textContent = "Not linked to any claim chart — won't be used in chat until linked.";
+            sec.appendChild(title);
+            const row = document.createElement("div");
+            row.className = "d-flex flex-wrap align-items-center gap-2";
+            loose.forEach((d) => {
+              const dchip = document.createElement("span");
+              dchip.className = "chip border-warning";
+              dchip.innerHTML =
+                `📎 ${escapeHtml(d.name)} ` +
+                productDocOpenLinkHtml(d) +
+                `<button type="button" class="x" data-action="rename-doc" data-doc-id="${d.id}" title="Rename">✎</button>` +
+                `<button type="button" class="x" data-action="assign-doc-active-chart" data-doc-id="${d.id}" title="Link to active claim chart">🔗</button>` +
+                `<button type="button" class="x" data-action="delete-doc" data-doc-id="${d.id}" aria-label="Remove document">×</button>`;
+              row.appendChild(dchip);
+            });
+            sec.appendChild(row);
+            el.workspaceBundle.appendChild(sec);
+          }
+        }
+
+        function renderTable() {
+          el.claimTbody.innerHTML = "";
+          const rows = (state.activeChart && state.activeChart.rows) || [];
+
+          if (!state.activeChartId) {
+            el.rowCountBadge.textContent = "0 rows";
+            el.claimTbody.innerHTML = `<tr><td colspan="3" class="text-muted">Upload a claim chart to begin.</td></tr>`;
+            return;
+          }
+
+          el.rowCountBadge.textContent = `${rows.length} rows`;
+
+          if (state.activeChart && state.activeChart.status === "error") {
+            el.claimTbody.innerHTML = `<tr><td colspan="3" class="text-danger">Parse error: ${escapeHtml(state.activeChart.error_message || "Unknown error")}</td></tr>`;
+            return;
+          }
+
+          const getPending = (rowId, field) =>
+            ui.pendingSuggestions.find((s) => s.row_id === rowId && s.field === field) || null;
+
+          rows.forEach((r) => {
+            const tr = document.createElement("tr");
+            tr.className = "claim-row";
+            tr.dataset.rowId = String(r.id);
+            tr.dataset.strength = r.strength || "weak";
+            if (ui.activeRowId === r.id) tr.classList.add("is-active");
+            const origin = r.origin || "upload";
+            const originClass = origin === "added" ? "origin-added" : "origin-upload";
+
+            const cell = (key) => {
+              const p = getPending(r.id, key);
+              if (p) {
+                return `
+                  <div class="cell-body">
+                    <div class="diff-old"><s>${escapeHtml(p.old_text)}</s></div>
+                    <div class="diff-new">${escapeHtml(p.new_text)}</div>
+                    <div class="diff-actions">
+                      <button class="btn btn-success btn-sm" data-action="accept" data-field="${key}">
+                        <i class="bi bi-check2 me-1"></i> Accept
+                      </button>
+                      <button class="btn btn-outline-secondary btn-sm" data-action="reject" data-field="${key}">
+                        <i class="bi bi-x-lg me-1"></i> Reject
+                      </button>
+                    </div>
+                  </div>`;
+              }
+              return `<div class="cell-body">${escapeHtml(r[key] || "")}</div>`;
+            };
+
+            const st = r.strength || "weak";
+            tr.innerHTML = `
+              <td style="position:relative;">
+                <span class="strength-rail"></span>
+                <div class="row-meta">
+                  <div class="row-meta-badges">
+                    <span class="row-origin-mini ${originClass}" title="${escapeHtml(originTitle(origin))}">${escapeHtml(originAbbrev(origin))}</span>
+                    <span class="row-strength-mini" title="Evidence strength: ${escapeHtml(strengthTitle(st))}"><span class="dot"></span>${escapeHtml(strengthAbbrev(st))}</span>
+                  </div>
+                  <div class="row-meta-tools">
+                    <button type="button" class="btn row-edit-btn" data-edit-row="${r.id}" title="Edit row"><i class="bi bi-pencil-square" aria-hidden="true"></i></button>
+                  </div>
+                </div>
+                ${cell("claim")}
+              </td>
+              <td>${cell("evidence")}</td>
+              <td>${cell("reasoning")}</td>
+            `;
+            el.claimTbody.appendChild(tr);
+          });
+
+          (ui.pendingNewRows || []).forEach((nr, idx) => {
+            const tr = document.createElement("tr");
+            tr.className = "claim-row pending-new-row";
+            tr.setAttribute("data-pending-new-index", String(idx));
+            tr.dataset.strength = "weak";
+            const cells = (key) => `<div class="cell-body">${escapeHtml(nr[key] || "")}</div>`;
+            tr.innerHTML = `
+              <td style="position:relative;">
+                <span class="strength-rail"></span>
+                <div class="row-meta">
+                  <div class="row-meta-badges">
+                    <span class="row-origin-mini origin-proposed" title="Proposed new row">Prop</span>
+                    <span class="row-strength-mini" title="Evidence strength: ${escapeHtml(strengthTitle("weak"))}"><span class="dot"></span>${escapeHtml(strengthAbbrev("weak"))}</span>
+                  </div>
+                </div>
+                ${cells("claim")}
+              </td>
+              <td>${cells("evidence")}</td>
+              <td>${cells("reasoning")}
+                <div class="diff-actions">
+                  <button type="button" class="btn btn-success btn-sm" data-action="accept-new-row" data-pending-index="${idx}">
+                    <i class="bi bi-check2 me-1"></i> Accept (add row)
+                  </button>
+                  <button type="button" class="btn btn-outline-secondary btn-sm" data-action="reject-new-row" data-pending-index="${idx}">
+                    <i class="bi bi-x-lg me-1"></i> Dismiss
+                  </button>
+                </div>
+              </td>
+            `;
+            el.claimTbody.appendChild(tr);
+          });
+        }
+
+        function renderChat() {
+          el.chatMessages.innerHTML = "";
+          if (!state.activeChartId) {
+            el.chatMessages.innerHTML = `
+              <div class="chat-empty">
+                <div class="chat-empty-title"><span class="spark" aria-hidden="true">✨</span> Wake up Spark</div>
+                <p>Pick a case, load a chart from the strip or use <strong>+</strong> to upload. Then ask for stronger evidence, tighter reasoning, or a summary — chips sit under the composer.</p>
+                <div class="chat-hints">
+                  <span class="chat-hint">Strengthen rows</span>
+                  <span class="chat-hint">Undo / redo</span>
+                  <span class="chat-hint">Accept diffs in-grid</span>
+                </div>
+              </div>`;
+            return;
+          }
+
+          const chat = (state.activeChart && state.activeChart.chat) || [];
+          if (!chat.length) {
+            el.chatMessages.innerHTML = `
+              <div class="chat-empty">
+                <div class="chat-empty-title"><span class="spark" aria-hidden="true">🚀</span> Thread ready</div>
+                <p>Type below or tap a chip — Spark replies here and can drop <strong>before / after</strong> cards; you still accept or reject in the chart.</p>
+              </div>`;
+            return;
+          }
+
+          chat.forEach((m) => {
+            const row = document.createElement("div");
+            row.className = `msg ${m.role === "user" ? "user" : "ai"}`;
+
+            if (m.role !== "user") {
+              const avatar = document.createElement("div");
+              avatar.className = "avatar";
+              avatar.setAttribute("aria-hidden", "true");
+              avatar.textContent = "✨";
+              row.appendChild(avatar);
+            }
+
+            const bubble = document.createElement("div");
+            bubble.className = `bubble ${m.role === "user" ? "user" : "ai"}`;
+
+            if (m.role === "user") {
+              bubble.innerHTML = `<div class="content chat-prose">${formatChatProse(m.content || "")}</div>`;
+            } else {
+              bubble.innerHTML = renderAssistantBubbleHtml(m.content || "");
+            }
+
+            const ts = document.createElement("div");
+            ts.className = "timestamp";
+            ts.textContent = formatTime(m.ts);
+            bubble.appendChild(ts);
+
+            row.appendChild(bubble);
+            el.chatMessages.appendChild(row);
+          });
+          el.chatMessages.scrollTop = el.chatMessages.scrollHeight;
+        }
+
+        function showTyping(on) {
+          el.typing.classList.toggle("d-none", !on);
+        }
+
+        function setActiveRow(rowId) {
+          ui.activeRowId = rowId;
+          renderTable();
+          if (!rowId) return;
+          const rowEl = el.claimTbody.querySelector(`tr[data-row-id="${rowId}"]`);
+          if (rowEl) rowEl.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+
+        function maybeHighlightFromText(text) {
+          const t = (text || "").toLowerCase();
+          const m = t.match(/(?:element|row)\s*(\d+)/);
+          if (m) setActiveRow(Number(m[1]));
+        }
+
+        function userWantsApplyViaChat(text) {
+          const ml = (text || "").trim().toLowerCase();
+          if (!ml || ml.length > 200) return false;
+          const triggers = [
+            "do it",
+            "please do",
+            "do the change",
+            "do the changes",
+            "make the change",
+            "make those changes",
+            "apply",
+            "apply it",
+            "apply that",
+            "go ahead",
+            "implement",
+            "update the table",
+            "update the chart",
+            "put it in the table",
+            "save it",
+            "yes do",
+            "do that",
+            "proceed",
+            "commit",
+          ];
+          return triggers.some((t) => ml.includes(t));
+        }
+
+        function clearPendingSuggestion() {
+          ui.pendingSuggestions = [];
+          renderTable();
+        }
+
+        function rejectNewRow(index) {
+          if (index < 0 || index >= ui.pendingNewRows.length) return;
+          ui.pendingNewRows.splice(index, 1);
+          renderTable();
+          toast("Proposed row dismissed");
+        }
+
+        function applyNewRow(index) {
+          const nr = ui.pendingNewRows[index];
+          if (!nr || !state.activeChartId) return;
+          apiPostJson(`/api/claim-charts/${state.activeChartId}/suggestions/apply`, {
+            suggestion: { type: "add_row", claim: nr.claim || "", evidence: nr.evidence || "", reasoning: nr.reasoning || "" },
+          }).then((data) => {
+            if (!data.ok) return toast("Failed to add row");
+            ui.pendingNewRows.splice(index, 1);
+            state.activeChart = data.claim_chart;
+            toast("Row added — tagged “Added” in the table");
+            renderTable();
+            syncUndoRedoButtons();
+            refreshChangeLog();
+            renderAdminPanel();
+          });
+        }
+
+        async function refreshCases() {
+          const data = await apiGet("/api/cases");
+          state.cases = data.cases || [];
+          if (!state.activeCaseId && state.cases.length) state.activeCaseId = state.cases[0].id;
+          renderCaseSelect();
+          renderDocs();
+          renderAdminPanel();
+        }
+
+        async function loadChart(chartId) {
+          const data = await apiGet(`/api/claim-charts/${chartId}`);
+          if (!data.ok) return;
+          state.activeChartId = chartId;
+          state.activeChart = data.claim_chart;
+          el.systemInstructions.value = state.activeChart.system_instructions || "";
+          ui.pendingNewRows = [];
+          ui.activeRowId = null;
+          el.chatInput.value = "";
+          autoExpandTextarea(el.chatInput);
+          clearPendingSuggestion();
+          renderDocs();
+          renderTable();
+          renderChat();
+          syncUndoRedoButtons();
+          refreshChangeLog();
+          renderAdminPanel();
+        }
+
+        function applySuggestion(s) {
+          if (!state.activeChartId) return;
+          apiPostJson(`/api/claim-charts/${state.activeChartId}/suggestions/apply`, { suggestion: s }).then((data) => {
+            if (!data.ok) return toast("Failed to apply suggestion");
+            state.activeChart = data.claim_chart;
+            clearPendingSuggestion();
+            setActiveRow(s.row_id);
+            toast("✓ Change accepted");
+            renderTable();
+            renderChat();
+            syncUndoRedoButtons();
+            refreshChangeLog();
+            renderAdminPanel();
+          });
+        }
+
+        function rejectSuggestion(rowId, field) {
+          ui.pendingSuggestions = ui.pendingSuggestions.filter((s) => !(s.row_id === rowId && s.field === field));
+          if (!ui.pendingSuggestions.length) ui.activeRowId = null;
+          renderTable();
+          toast("✗ Suggestion rejected");
+        }
+
+        function undoLastChange() {
+          if (!state.activeChartId) return;
+          fetch(`/api/claim-charts/${state.activeChartId}/undo`, { method: "POST" })
+            .then((r) => r.json())
+            .then((data) => {
+              if (!data.ok) return;
+              state.activeChart = data.claim_chart;
+              clearPendingSuggestion();
+              renderTable();
+              toast("↩ Undone");
+              renderChat();
+              syncUndoRedoButtons();
+              refreshChangeLog();
+              renderAdminPanel();
+            });
+        }
+
+        function redoLastChange() {
+          if (!state.activeChartId) return;
+          fetch(`/api/claim-charts/${state.activeChartId}/redo`, { method: "POST" })
+            .then((r) => r.json())
+            .then((data) => {
+              if (!data.ok) return;
+              state.activeChart = data.claim_chart;
+              clearPendingSuggestion();
+              renderTable();
+              toast("↪ Redone");
+              renderChat();
+              syncUndoRedoButtons();
+              refreshChangeLog();
+              renderAdminPanel();
+            });
+        }
+
+        function openRowEditor(rowId) {
+          if (!state.activeChart || !state.activeChart.rows) return;
+          const r = state.activeChart.rows.find((x) => x.id === rowId);
+          if (!r) return;
+          el.rowEditTitle.textContent = String(rowId);
+          el.rowEditIndex.value = String(rowId);
+          el.rowEditClaim.value = r.claim || "";
+          el.rowEditEvidence.value = r.evidence || "";
+          el.rowEditReasoning.value = r.reasoning || "";
+          el.rowEditStrength.value = "";
+          el.rowEditOrigin.value = r.origin === "added" ? "added" : "upload";
+          rowEditModalBs().show();
+        }
+
+        function commitRowEdit() {
+          const rid = Number(el.rowEditIndex.value);
+          if (!state.activeChartId || !rid) return;
+          const payload = {
+            row_index: rid,
+            claim: el.rowEditClaim.value,
+            evidence: el.rowEditEvidence.value,
+            reasoning: el.rowEditReasoning.value,
+            origin: el.rowEditOrigin.value,
+          };
+          const st = el.rowEditStrength.value;
+          if (st) payload.strength = st;
+          apiPostJson(`/api/claim-charts/${state.activeChartId}/rows/update`, payload).then((data) => {
+            if (!data.ok) return toast("Save failed");
+            state.activeChart = data.claim_chart;
+            rowEditModalBs().hide();
+            renderTable();
+            syncUndoRedoButtons();
+            refreshChangeLog();
+            renderAdminPanel();
+            toast("Row saved");
+          });
+        }
+
+        function deleteRowFromModal() {
+          const rid = Number(el.rowEditIndex.value);
+          if (!state.activeChartId || !rid) return;
+          if (!confirm(`Delete row ${rid}?`)) return;
+          apiPostJson(`/api/claim-charts/${state.activeChartId}/rows/delete`, { row_index: rid }).then((data) => {
+            if (!data.ok) return toast("Delete failed");
+            state.activeChart = data.claim_chart;
+            rowEditModalBs().hide();
+            renderTable();
+            syncUndoRedoButtons();
+            refreshChangeLog();
+            renderAdminPanel();
+            toast("Row deleted");
+          });
+        }
+
+        async function sendMessage(message) {
+          const msg = (message || "").trim();
+          if (!msg) return;
+          if (!state.activeChartId) return toast("Upload/select a claim chart first");
+          const ml = msg.toLowerCase();
+          if (ml === "undo" || ml === "undo last change") return undoLastChange();
+          if (ml === "redo" || ml === "redo last change") return redoLastChange();
+
+          maybeHighlightFromText(msg);
+          showTyping(false);
+          if (ui.typingTimer) clearTimeout(ui.typingTimer);
+          ui.typingTimer = setTimeout(() => showTyping(true), 300);
+
+          try {
+            const resp = await fetch(`/api/claim-charts/${state.activeChartId}/chat`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ message: msg, systemInstructions: el.systemInstructions.value || "" }),
+            });
+            const data = await resp.json();
+            showTyping(false);
+            if (ui.typingTimer) clearTimeout(ui.typingTimer);
+
+            state.activeChart = data.claim_chart || state.activeChart;
+            syncUndoRedoButtons();
+            refreshChangeLog();
+            renderAdminPanel();
+            renderChat();
+
+            const sg = data.strength_gate;
+            if (sg && sg.removed_count > 0) {
+              const detail = (sg.removed || [])
+                .slice(0, 5)
+                .map((x) => `R${x.row_id}·${x.field}`)
+                .join(", ");
+              const more = sg.removed_count > 5 ? ` +${sg.removed_count - 5} more` : "";
+              toast(
+                `Skipped ${sg.removed_count} AI edit(s) on rows marked Strong (${detail}${more}). Ask for “alternate wording” or “review all rows” if you want those.`
+              );
+            }
+
+            const suggestions = data.suggestions || [];
+            const assistantText = data.assistant || "—";
+
+            let assistantWithCard = assistantText;
+            if (suggestions.length) {
+              const lines = suggestions.map((s) => {
+                const lab =
+                  s.field === "claim"
+                    ? "claim element"
+                    : s.field === "evidence"
+                      ? "evidence"
+                      : "reasoning";
+                return `• Row **${s.row_id}** (${lab})`;
+              });
+              assistantWithCard =
+                assistantText +
+                "\n\n**Suggested edits** — review the before/after cards below, then accept or reject in the chart.\n" +
+                lines.join("\n") +
+                "\n" +
+                LUMENCI_SUG_START +
+                encodeURIComponent(JSON.stringify({ suggestions })) +
+                LUMENCI_SUG_END;
+            }
+            const newRows = Array.isArray(data.new_rows) ? data.new_rows : [];
+            if (newRows.length) {
+              assistantWithCard +=
+                "\n\n**Proposed new row(s)** — shown at the bottom of the claim chart with a **Proposed new** tag. " +
+                "Click **Accept (add row)** to insert them permanently as **Added** (distinct from **Original** upload rows).";
+              ui.pendingNewRows = newRows.map((x) => ({
+                claim: x.claim || "",
+                evidence: x.evidence || "",
+                reasoning: x.reasoning || "",
+              }));
+              renderTable();
+            } else {
+              ui.pendingNewRows = [];
+              renderTable();
+            }
+
+            const chat = [...(state.activeChart.chat || [])];
+            const last = chat.length ? chat[chat.length - 1] : null;
+            if (last && last.role === "assistant") {
+              chat[chat.length - 1] = { ...last, content: assistantWithCard };
+            } else {
+              chat.push({ role: "assistant", content: assistantWithCard, ts: Date.now() });
+            }
+            state.activeChart.chat = chat;
+            renderChat();
+            maybeHighlightFromText(assistantWithCard);
+
+            if (suggestions.length) {
+              ui.pendingSuggestions = suggestions.map((s) => ({
+                row_id: Number(s.row_id),
+                field: s.field,
+                old_text: s.old_text,
+                new_text: s.new_text,
+              }));
+              setActiveRow(ui.pendingSuggestions[0].row_id);
+              if (suggestions.length === 1 && userWantsApplyViaChat(msg)) {
+                applySuggestion({
+                  row_id: Number(suggestions[0].row_id),
+                  field: suggestions[0].field,
+                  old_text: suggestions[0].old_text,
+                  new_text: suggestions[0].new_text,
+                });
+              }
+            }
+          } catch {
+            showTyping(false);
+            if (ui.typingTimer) clearTimeout(ui.typingTimer);
+            toast("Chat error");
+          }
+        }
+
+        function wireEvents() {
+          el.caseSelect.addEventListener("change", () => {
+            state.activeCaseId = Number(el.caseSelect.value);
+            state.activeChartId = null;
+            state.activeChart = null;
+            ui.pendingNewRows = [];
+            ui.activeRowId = null;
+            el.systemInstructions.value = "";
+            el.chatInput.value = "";
+            autoExpandTextarea(el.chatInput);
+            clearPendingSuggestion();
+            renderDocs();
+            renderTable();
+            renderChat();
+            syncUndoRedoButtons();
+            refreshChangeLog();
+            renderAdminPanel();
+          });
+
+          el.adminCaseRenameBtn.addEventListener("click", async () => {
+            const c = getActiveCase();
+            if (!c) return toast("Select a case first");
+            const name = el.adminCaseName.value.trim();
+            if (!name) return toast("Enter a case name");
+            const data = await apiPostJson(`/api/cases/${c.id}/update`, { name });
+            if (!data.ok) return toast("Rename failed");
+            await refreshCases();
+            toast("Case renamed");
+          });
+          el.adminCaseDeleteBtn.addEventListener("click", async () => {
+            const c = getActiveCase();
+            if (!c) return toast("Select a case first");
+            if (!confirm(`Delete case “${c.name}” and ALL charts, rows, documents, and chat for all its charts?`)) return;
+            const res = await fetch(`/api/cases/${c.id}/delete`, { method: "POST" }).then((r) => r.json());
+            if (!res.ok) return toast("Delete failed");
+            state.activeCaseId = null;
+            state.activeChartId = null;
+            state.activeChart = null;
+            await refreshCases();
+            renderTable();
+            renderChat();
+            syncUndoRedoButtons();
+            refreshChangeLog();
+            renderAdminPanel();
+            toast("Case deleted");
+          });
+          el.adminChartRenameBtn.addEventListener("click", async () => {
+            if (!state.activeChartId) return toast("Select a claim chart first");
+            const name = el.adminChartName.value.trim();
+            if (!name) return toast("Enter a chart title");
+            const data = await apiPostJson(`/api/claim-charts/${state.activeChartId}/update`, { name });
+            if (!data.ok) return toast("Rename failed");
+            await loadChart(state.activeChartId);
+            await refreshCases();
+            toast("Chart renamed");
+          });
+          el.adminAddEmptyRowBtn.addEventListener("click", async () => {
+            if (!state.activeChartId) return toast("Select a chart first");
+            const data = await apiPostJson(`/api/claim-charts/${state.activeChartId}/rows/add-empty`, {});
+            if (!data.ok) return toast("Failed");
+            state.activeChart = data.claim_chart;
+            renderTable();
+            renderAdminPanel();
+            toast("Empty row added");
+          });
+          el.adminClearChatBtn.addEventListener("click", async () => {
+            if (!state.activeChartId) return;
+            if (!confirm("Delete all chat messages for this chart?")) return;
+            const data = await apiPostJson(`/api/claim-charts/${state.activeChartId}/chat/clear`, {});
+            if (!data.ok) return toast("Failed");
+            state.activeChart = data.claim_chart;
+            renderChat();
+            toast("Chat cleared");
+          });
+          el.adminClearHistoryBtn.addEventListener("click", async () => {
+            if (!state.activeChartId) return;
+            if (!confirm("Clear all edit history (undo/redo log) for this chart?")) return;
+            const data = await apiPostJson(`/api/claim-charts/${state.activeChartId}/history/clear`, {});
+            if (!data.ok) return toast("Failed");
+            state.activeChart = data.claim_chart;
+            syncUndoRedoButtons();
+            refreshChangeLog();
+            toast("Edit history cleared");
+          });
+          el.rowEditSaveBtn.addEventListener("click", commitRowEdit);
+          el.rowEditDeleteBtn.addEventListener("click", deleteRowFromModal);
+          el.exportDownloadBtn.addEventListener("click", () => {
+            if (!state.activeChartId) {
+              toast("Select a claim chart first");
+              return;
+            }
+            window.location.href = `/api/claim-charts/${state.activeChartId}/export.docx?v=${Date.now()}`;
+            bootstrap.Modal.getOrCreateInstance(el.exportModal).hide();
+          });
+
+          el.undoChartBtn.addEventListener("click", undoLastChange);
+          el.redoChartBtn.addEventListener("click", redoLastChange);
+          el.densityCompactBtn.addEventListener("click", () => {
+            ui.tableDensity = "compact";
+            applyTableDensity();
+          });
+          el.densityComfortBtn.addEventListener("click", () => {
+            ui.tableDensity = "comfort";
+            applyTableDensity();
+          });
+
+          el.createCaseBtn.addEventListener("click", async () => {
+            const name = (prompt("Matter name", "New matter") || "").trim();
+            const data = await apiPostJson("/api/cases/create", { name: name || "New matter" });
+            if (!data.ok) return toast("Failed to create matter");
+            await refreshCases();
+            state.activeCaseId = data.case.id;
+            renderCaseSelect();
+            renderDocs();
+            toast("Matter created");
+          });
+
+          document.querySelectorAll("[data-chip]").forEach((btn) => {
+            btn.addEventListener("click", () => {
+              const text = btn.getAttribute("data-chip") || "";
+              if (text.includes("Undo") && !text.includes("Redo")) return sendMessage("undo");
+              if (text.includes("Redo")) return sendMessage("redo");
+              el.chatInput.value = text;
+              autoExpandTextarea(el.chatInput);
+              el.chatInput.focus();
+            });
+          });
+
+          el.sendBtn.addEventListener("click", () => {
+            const v = el.chatInput.value;
+            el.chatInput.value = "";
+            autoExpandTextarea(el.chatInput);
+            sendMessage(v);
+          });
+
+          el.chatInput.addEventListener("keydown", (e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              const v = el.chatInput.value;
+              el.chatInput.value = "";
+              autoExpandTextarea(el.chatInput);
+              sendMessage(v);
+            }
+          });
+          el.chatInput.addEventListener("input", () => autoExpandTextarea(el.chatInput));
+
+          function closeComposerAttachMenu() {
+            const dd = bootstrap.Dropdown.getInstance(el.composerAttachBtn);
+            if (dd) dd.hide();
+          }
+
+          el.attachAddChartBtn.addEventListener("click", (e) => {
+            e.preventDefault();
+            el.chartFileInput.click();
+            closeComposerAttachMenu();
+          });
+          el.attachAddDocBtn.addEventListener("click", (e) => {
+            e.preventDefault();
+            if (!state.activeChartId) {
+              closeComposerAttachMenu();
+              toast("Select an active claim chart first (see summary under Spark, or ⇄ in Docs), then add a technical document.");
+              expandWorkspacePanel();
+              return;
+            }
+            ui.pendingDocChartId = state.activeChartId;
+            expandWorkspacePanel();
+            // Open file dialog immediately (same user gesture) so the browser links the upload to this chart.
+            el.docFileInput.click();
+            closeComposerAttachMenu();
+          });
+          el.attachAddUrlBtn.addEventListener("click", (e) => {
+            e.preventDefault();
+            closeComposerAttachMenu();
+            const c = getActiveCase();
+            if (!c) return toast("Create or select a matter first.");
+            if (!state.activeChartId) {
+              toast("Select the active claim chart (⇄ in Docs), then capture a URL.");
+              expandWorkspacePanel();
+              return;
+            }
+            openAddUrlModal(state.activeChartId);
+          });
+          el.saveProductUrlBtn.addEventListener("click", async () => {
+            const url = (el.productUrlInput && el.productUrlInput.value) || "";
+            const trimmed = url.trim();
+            if (!trimmed) return toast("Enter a URL.");
+            const c = getActiveCase();
+            if (!c) return toast("No matter selected.");
+            let cid =
+              ui.pendingUrlChartId != null && ui.pendingUrlChartId !== ""
+                ? Number(ui.pendingUrlChartId)
+                : state.activeChartId;
+            if (!cid) {
+              const charts = c.claim_charts || [];
+              if (charts.length === 1) cid = charts[0].id;
+            }
+            ui.pendingUrlChartId = null;
+            if (!cid) return toast("Select which claim chart this URL supports (⇄ in Docs).");
+            el.saveProductUrlBtn.disabled = true;
+            try {
+              const data = await apiPostJson("/api/product-docs/from-url", {
+                case_id: c.id,
+                claim_chart_id: cid,
+                url: trimmed,
+              });
+              if (!data.ok) return toast(data.error || "Could not capture URL.");
+              await refreshCases();
+              bootstrap.Modal.getOrCreateInstance(document.getElementById("addUrlModal")).hide();
+              toast("Page captured — Spark will use it in chat for that chart.");
+            } finally {
+              el.saveProductUrlBtn.disabled = false;
+            }
+          });
+          el.attachInstructionsBtn.addEventListener("click", () => {
+            closeComposerAttachMenu();
+            bootstrap.Modal.getOrCreateInstance(document.getElementById("instructionsModal")).show();
+          });
+          el.attachWorkspaceBtn.addEventListener("click", () => {
+            closeComposerAttachMenu();
+            bootstrap.Modal.getOrCreateInstance(document.getElementById("workspaceAdminModal")).show();
+          });
+          el.saveInstructionsBtn.addEventListener("click", async () => {
+            if (!state.activeChartId) return toast("Select a claim chart first");
+            const data = await apiPostJson(`/api/claim-charts/${state.activeChartId}/update`, {
+              systemInstructions: el.systemInstructions.value || "",
+            });
+            if (!data.ok) return toast("Could not save instructions");
+            state.activeChart = data.claim_chart;
+            toast("Instructions saved to this chart");
+            bootstrap.Modal.getOrCreateInstance(document.getElementById("instructionsModal")).hide();
+          });
+
+          el.docFileInput.addEventListener("change", () => {
+            const f = el.docFileInput.files && el.docFileInput.files[0];
+            if (!f) {
+              ui.pendingDocChartId = null;
+              return;
+            }
+            const pending = ui.pendingDocChartId;
+            ui.pendingDocChartId = null;
+            const targetChart = pending != null && pending !== "" ? Number(pending) : state.activeChartId;
+            const c = getActiveCase();
+            if (!c) return toast("Create/select a case first");
+            if (!targetChart) {
+              toast("Select which claim chart this document supports (open Docs, then ⇄ on a chart), then use + again.");
+              expandWorkspacePanel();
+              return;
+            }
+            const fd = new FormData();
+            fd.append("case_id", String(c.id));
+            fd.append("claim_chart_id", String(targetChart));
+            fd.append("file", f);
+            fetch("/api/product-docs/upload", { method: "POST", body: fd })
+              .then((r) => r.json())
+              .then(async (data) => {
+                if (!data.ok) return toast("Upload failed");
+                await refreshCases();
+                const chart = (getActiveCase().claim_charts || []).find((x) => x.id === targetChart);
+                const label = chart ? chart.name : `chart #${targetChart}`;
+                toast(`Technical document linked to “${label}” — Spark will use it in chat for that chart.`);
+              })
+              .finally(() => (el.docFileInput.value = ""));
+          });
+
+          el.chartFileInput.addEventListener("change", () => {
+            const f = el.chartFileInput.files && el.chartFileInput.files[0];
+            if (!f) return;
+            const c = getActiveCase();
+            if (!c) return toast("Create/select a case first");
+            const fd = new FormData();
+            fd.append("case_id", String(c.id));
+            fd.append("file", f);
+            fetch("/api/claim-charts/upload", { method: "POST", body: fd })
+              .then((r) => r.json())
+              .then(async (data) => {
+                if (!data.ok) return toast("Upload failed");
+                await refreshCases();
+                await loadChart(data.claim_chart.id);
+                toast("Claim chart uploaded");
+              })
+              .finally(() => (el.chartFileInput.value = ""));
+          });
+
+          el.workspaceBundle.addEventListener("click", (e) => {
+            const t = e.target;
+            if (!(t instanceof HTMLElement)) return;
+
+            const addFor = t.closest("[data-add-doc-for-chart]");
+            if (addFor instanceof HTMLElement) {
+              const cid = Number(addFor.getAttribute("data-add-doc-for-chart"));
+              if (!cid) return;
+              expandWorkspacePanel();
+              ui.pendingDocChartId = cid;
+              el.docFileInput.click();
+              return;
+            }
+
+            const addUrlFor = t.closest("[data-add-url-for-chart]");
+            if (addUrlFor instanceof HTMLElement) {
+              const cid = Number(addUrlFor.getAttribute("data-add-url-for-chart"));
+              if (!cid) return;
+              openAddUrlModal(cid);
+              return;
+            }
+
+            const docHit = t.closest("[data-action][data-doc-id]");
+            if (docHit instanceof HTMLElement) {
+              const action = docHit.getAttribute("data-action") || "";
+              const docId = Number(docHit.getAttribute("data-doc-id"));
+              if (!docId) return;
+
+              if (action === "assign-doc-active-chart") {
+                if (!state.activeChartId)
+                  return toast("Select the claim chart to link this document to (open Docs, then ⇄), then click 🔗 again.");
+                apiPostJson(`/api/product-docs/${docId}/update`, { claim_chart_id: state.activeChartId }).then(async (data) => {
+                  if (!data.ok) return toast("Link failed");
+                  await refreshCases();
+                  toast("Document linked to active claim chart");
+                });
+                return;
+              }
+
+              if (action === "rename-doc") {
+                const meta = findProductDocMeta(docId);
+                const cur = meta ? meta.doc : { name: "" };
+                const nm = (prompt("Document display name", cur.name || "") || "").trim();
+                if (!nm) return;
+                apiPostJson(`/api/product-docs/${docId}/update`, { name: nm }).then(async (data) => {
+                  if (!data.ok) return toast("Rename failed");
+                  await refreshCases();
+                  toast("Document renamed");
+                });
+                return;
+              }
+              if (action === "delete-doc") {
+                if (!confirm("Remove this technical document from the case?")) return;
+                fetch(`/api/product-docs/${docId}/delete`, { method: "POST" })
+                  .then((r) => r.json())
+                  .then(async (data) => {
+                    if (!data.ok) return toast("Remove failed");
+                    await refreshCases();
+                    toast("Document removed");
+                  });
+                return;
+              }
+              return;
+            }
+
+            const hit = t.closest("[data-chart-id]");
+            if (!(hit instanceof HTMLElement)) return;
+            const chartId = hit.getAttribute("data-chart-id");
+            const action = hit.getAttribute("data-action") || "";
+            if (!chartId) return;
+            if (action === "source-download") return;
+            if (action === "rename-chart") {
+              const cur = (getActiveCase() && getActiveCase().claim_charts && getActiveCase().claim_charts.find((x) => x.id === Number(chartId))) || {
+                name: "",
+              };
+              const nm = (prompt("Chart name", cur.name) || "").trim();
+              if (!nm) return;
+              apiPostJson(`/api/claim-charts/${chartId}/update`, { name: nm }).then(async (data) => {
+                if (!data.ok) return toast("Rename failed");
+                await refreshCases();
+                if (state.activeChartId === Number(chartId)) await loadChart(Number(chartId));
+                toast("Chart renamed");
+              });
+              return;
+            }
+            if (action === "delete-chart") {
+              if (
+                !confirm(
+                  "Delete this claim chart? This deletes its chat, rows, and technical documents attached only to this chart."
+                )
+              )
+                return;
+              fetch(`/api/claim-charts/${Number(chartId)}/delete`, { method: "POST" })
+                .then((r) => r.json())
+                .then(async (data) => {
+                  if (!data.ok) return toast("Delete failed");
+                  if (state.activeChartId === Number(chartId)) {
+                    state.activeChartId = null;
+                    state.activeChart = null;
+                    ui.pendingNewRows = [];
+                    ui.activeRowId = null;
+                    clearPendingSuggestion();
+                  }
+                  await refreshCases();
+                  renderTable();
+                  renderChat();
+                  renderDocs();
+                  renderAdminPanel();
+                  toast("Claim chart deleted");
+                });
+              return;
+            }
+            if (action === "select-chart") loadChart(Number(chartId));
+          });
+
+          el.claimTbody.addEventListener("click", (e) => {
+            const target = e.target;
+            if (!(target instanceof HTMLElement)) return;
+            const tr = target.closest("tr");
+            if (!tr) return;
+            const acceptNewBtn = target.closest("[data-action='accept-new-row']");
+            if (acceptNewBtn) {
+              const pix = Number(acceptNewBtn.getAttribute("data-pending-index"));
+              if (!Number.isNaN(pix)) applyNewRow(pix);
+              return;
+            }
+            const rejectNewBtn = target.closest("[data-action='reject-new-row']");
+            if (rejectNewBtn) {
+              const pix = Number(rejectNewBtn.getAttribute("data-pending-index"));
+              if (!Number.isNaN(pix)) rejectNewRow(pix);
+              return;
+            }
+
+            const editBtn = target.closest("[data-edit-row]");
+            if (editBtn) {
+              const er = Number(editBtn.getAttribute("data-edit-row"));
+              if (!Number.isNaN(er)) openRowEditor(er);
+              return;
+            }
+
+            const rowId = Number(tr.dataset.rowId);
+            if (rowId) setActiveRow(rowId);
+
+            const acceptBtn = target.closest("[data-action='accept']");
+            const rejectBtn = target.closest("[data-action='reject']");
+            if (acceptBtn) {
+              const field = acceptBtn.getAttribute("data-field");
+              const s = ui.pendingSuggestions.find((x) => x.row_id === rowId && x.field === field);
+              if (s) applySuggestion(s);
+              return;
+            }
+            if (rejectBtn) {
+              const field = rejectBtn.getAttribute("data-field");
+              if (field) rejectSuggestion(rowId, field);
+              return;
+            }
+          });
+        }
+
+        async function boot() {
+          applyTableDensity();
+          await refreshCases();
+          renderTable();
+          renderChat();
+          syncUndoRedoButtons();
+          refreshChangeLog();
+          renderAdminPanel();
+          wireEvents();
+          autoExpandTextarea(el.chatInput);
+        }
+
+        boot();
+      })();
+    </script>
+  </body>
+</html>
+

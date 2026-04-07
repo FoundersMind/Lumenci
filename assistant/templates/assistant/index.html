@@ -1,0 +1,1231 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Lumenci Assistant</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet" />
+    <meta name="csrf-token" content="{{ csrf_token }}" />
+
+    <style>
+      :root{
+        --primary:#1e3a5f;
+        --accent:#2563eb;
+        --success:#198754;
+        --warning:#d97706;
+        --danger:#dc3545;
+        --surface:#ffffff;
+        --surface-2:#f8f9fa;
+        --border:#e2e8f0;
+        --text-muted:#6b7280;
+      }
+
+      html,body{ height:100%; }
+      body{
+        font-family:'Inter', system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+        font-size:14px;
+        line-height:1.6;
+        color:#0f172a;
+        background:var(--surface);
+        overflow:hidden; /* no body scrollbar */
+      }
+
+      .app-header{
+        height:60px;
+        position:fixed;
+        top:0; left:0; right:0;
+        z-index:1030;
+        background:var(--surface);
+        border-bottom:1px solid var(--border);
+        box-shadow: 0 2px 10px rgba(15,23,42,.04);
+      }
+
+      .brand{
+        display:flex;
+        align-items:center;
+        gap:10px;
+        user-select:none;
+      }
+      .brand-title{
+        font-weight:800;
+        letter-spacing:-0.02em;
+        color:var(--primary);
+        font-size:18px;
+      }
+      .brand-badge{
+        font-size:11px;
+        font-weight:800;
+        letter-spacing:.03em;
+      }
+
+      .app-main{
+        position:fixed;
+        top:60px; left:0; right:0; bottom:0;
+        display:flex;
+        min-height:0;
+      }
+
+      .panel{
+        min-height:0;
+        display:flex;
+        flex-direction:column;
+      }
+      .panel-left{
+        width:45%;
+        border-right:1px solid var(--border);
+        background:var(--surface);
+      }
+      .panel-right{
+        width:55%;
+        background:var(--surface);
+      }
+
+      .panel-topbar{
+        padding:12px 16px;
+        border-bottom:1px solid var(--border);
+        background:var(--surface);
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:12px;
+      }
+      .panel-title{
+        font-weight:800;
+        color:var(--primary);
+        display:flex;
+        align-items:center;
+        gap:10px;
+      }
+
+      /* LEFT: Claim chart */
+      .claim-scroll{
+        overflow:auto;
+        flex:1 1 auto;
+        min-height:0;
+        background:var(--surface);
+      }
+
+      .claim-table{
+        margin:0;
+      }
+      .claim-table thead th{
+        position:sticky;
+        top:0;
+        z-index:2;
+        background:var(--primary);
+        color:#fff;
+        font-size:13px;
+        text-transform:uppercase;
+        letter-spacing:.06em;
+        font-weight:800;
+        border-color:rgba(255,255,255,.12);
+        padding:12px 16px;
+      }
+      .claim-table tbody td{
+        vertical-align:top;
+        padding:12px 16px;
+        font-size:13px;
+        border-color:var(--border);
+      }
+
+      /* Reserve space so the strength pill doesn't overlap text */
+      .claim-table tbody td:first-child{
+        padding-top:44px;     /* space for the top-right pill */
+        padding-right:150px;  /* space so long pills don't cover claim text */
+        position:relative;
+      }
+      .claim-row{
+        position:relative;
+        background:#fff;
+        transition: background-color .15s ease;
+      }
+      .claim-row:nth-child(even){ background:#fbfcfe; }
+      .claim-row:hover{ background:#eef5ff; }
+
+      .strength-rail{
+        position:absolute;
+        left:0; top:0; bottom:0;
+        width:4px;
+        background:transparent;
+      }
+      .claim-row[data-strength="strong"] .strength-rail{ background:var(--success); }
+      .claim-row[data-strength="weak"] .strength-rail{ background:#ffc107; }
+      .claim-row[data-strength="missing"] .strength-rail{ background:var(--danger); }
+
+      .row-dot{
+        position:absolute;
+        right:12px;
+        top:12px;
+        display:inline-flex;
+        align-items:center;
+        gap:8px;
+        font-size:12px;
+        font-weight:700;
+        color:var(--text-muted);
+        background:rgba(255,255,255,.9);
+        border:1px solid var(--border);
+        border-radius:999px;
+        padding:4px 10px;
+        pointer-events:none;
+        backdrop-filter:saturate(120%) blur(2px);
+      }
+      .row-dot .dot{
+        width:10px;height:10px;border-radius:50%;
+      }
+      .claim-row[data-strength="strong"] .row-dot .dot{ background:var(--success); }
+      .claim-row[data-strength="weak"] .row-dot .dot{ background:#ffc107; }
+      .claim-row[data-strength="missing"] .row-dot .dot{ background:var(--danger); }
+
+      .claim-row.is-active{
+        background:#e9f2ff !important;
+      }
+      .claim-row.is-active .strength-rail{
+        animation: pulseRail 1.2s ease-in-out infinite;
+      }
+      @keyframes pulseRail{
+        0%,100%{ box-shadow: 0 0 0 0 rgba(37,99,235,.0); }
+        50%{ box-shadow: 0 0 0 6px rgba(37,99,235,.18); }
+      }
+
+      .diff-old{
+        color:rgba(220,53,69,.85);
+        text-decoration:line-through;
+      }
+      .diff-new{
+        color:rgba(25,135,84,.95);
+        font-weight:600;
+        margin-top:6px;
+      }
+      .diff-actions{
+        margin-top:10px;
+        display:flex;
+        gap:10px;
+        flex-wrap:wrap;
+      }
+
+      .row-flash{
+        animation: flashGreen .3s ease-in-out;
+      }
+      @keyframes flashGreen{
+        0%{ background:#dcfce7; }
+        100%{ background:inherit; }
+      }
+
+      /* RIGHT: Chat */
+      .chat-shell{
+        min-height:0;
+        display:flex;
+        flex-direction:column;
+        flex:1 1 auto;
+      }
+
+      .docs-accordion .accordion-button{
+        font-weight:800;
+        color:var(--primary);
+      }
+      .docs-accordion .accordion-button:not(.collapsed){
+        background:#f4f8ff;
+        color:var(--primary);
+        box-shadow:none;
+      }
+
+      .chip{
+        display:inline-flex;
+        align-items:center;
+        gap:8px;
+        padding:6px 10px;
+        border-radius:999px;
+        border:1px solid var(--border);
+        background:#fff;
+        font-size:12px;
+        font-weight:700;
+        color:var(--primary);
+        white-space:nowrap;
+      }
+      .chip .x{
+        border:0;
+        background:transparent;
+        color:var(--text-muted);
+        font-weight:900;
+        line-height:1;
+        padding:0 2px;
+        cursor:pointer;
+      }
+      .chip .x:hover{ color:#0f172a; }
+
+      .add-doc{
+        border:1px dashed var(--border);
+        background:#fff;
+        border-radius:10px;
+        padding:8px 10px;
+        font-size:12px;
+        font-weight:700;
+        color:var(--text-muted);
+        transition: all .12s ease;
+      }
+      .add-doc:hover{
+        border-color:rgba(37,99,235,.55);
+        color:var(--primary);
+        background:#f7fbff;
+      }
+
+      .chat-messages{
+        flex:1 1 auto;
+        min-height:0;
+        overflow:auto;
+        background:var(--surface-2);
+        padding:14px 16px;
+      }
+
+      .msg{
+        display:flex;
+        margin-bottom:12px;
+        gap:10px;
+        align-items:flex-end;
+        opacity:0;
+        animation: fadeIn .18s ease forwards;
+      }
+      @keyframes fadeIn{ to{ opacity:1; } }
+      .msg.user{ justify-content:flex-end; }
+      .msg.ai{ justify-content:flex-start; }
+
+      .avatar{
+        width:28px;height:28px;
+        border-radius:50%;
+        background:var(--primary);
+        color:#fff;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        font-weight:800;
+        font-size:12px;
+        flex:0 0 auto;
+      }
+
+      .bubble{
+        max-width:80%;
+        border-radius:20px;
+        padding:12px 14px;
+        border:1px solid var(--border);
+        background:#fff;
+      }
+      .bubble.user{
+        background:var(--primary);
+        border-color:rgba(255,255,255,.12);
+        color:#fff;
+        max-width:75%;
+      }
+
+      .bubble .content{
+        white-space:pre-wrap;
+        margin:0;
+      }
+      .timestamp{
+        font-size:11px;
+        color:var(--text-muted);
+        margin-top:6px;
+      }
+      .msg.user .timestamp{
+        text-align:right;
+      }
+
+      .suggestion-card{
+        border:1px solid var(--border);
+        background:#fbfdff;
+        border-radius:14px;
+        padding:10px 12px;
+        margin-top:10px;
+      }
+      .suggestion-card .title{
+        font-weight:800;
+        color:var(--primary);
+        font-size:12px;
+        margin-bottom:6px;
+      }
+
+      .composer{
+        border-top:1px solid var(--border);
+        background:#fff;
+        padding:10px 12px 12px 12px;
+      }
+      .quick-row{
+        display:flex;
+        gap:8px;
+        overflow:auto;
+        padding-bottom:8px;
+        margin-bottom:8px;
+      }
+      .quick-pill{
+        border:1px solid var(--border);
+        background:#fff;
+        border-radius:999px;
+        padding:6px 10px;
+        font-size:12px;
+        font-weight:700;
+        color:var(--primary);
+        white-space:nowrap;
+      }
+      .quick-pill:hover{
+        background:#f5f7fb;
+      }
+
+      .composer textarea{
+        resize:none;
+        overflow:hidden;
+        min-height:42px;
+        max-height:120px;
+      }
+
+      .typing-wrap{
+        height:22px;
+        margin-bottom:8px;
+      }
+      .typing-indicator{
+        display:inline-flex;
+        align-items:center;
+        gap:6px;
+        padding:6px 10px;
+        border-radius:999px;
+        border:1px solid var(--border);
+        background:#fff;
+      }
+      .typing-indicator span{
+        width:7px;height:7px;border-radius:50%;
+        background:var(--primary);
+        opacity:.35;
+        animation: bounceDot 1.05s infinite ease-in-out;
+      }
+      .typing-indicator span:nth-child(2){ animation-delay:.15s; }
+      .typing-indicator span:nth-child(3){ animation-delay:.30s; }
+      @keyframes bounceDot{
+        0%,80%,100%{ transform:translateY(0); opacity:.35; }
+        40%{ transform:translateY(-4px); opacity:.85; }
+      }
+
+      /* Responsive: stack on tablet */
+      @media (max-width: 991.98px){
+        .app-main{ flex-direction:column; }
+        .panel-left, .panel-right{ width:100%; }
+        .panel-left{ border-right:0; border-bottom:1px solid var(--border); height:45%; }
+        .panel-right{ height:55%; }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="app-header">
+      <div class="container-fluid px-3 h-100 d-flex align-items-center justify-content-between">
+        <div class="brand">
+          <div class="brand-title">Lumenci</div>
+          <span class="badge text-bg-primary brand-badge">Assistant</span>
+        </div>
+        <button class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#exportModal">
+          <i class="bi bi-download me-1"></i> Export to Word
+        </button>
+      </div>
+    </header>
+
+    <main class="app-main">
+      <!-- LEFT PANEL -->
+      <section class="panel panel-left">
+        <div class="panel-topbar">
+          <div class="panel-title">
+            Claim Chart
+            <span id="rowCountBadge" class="badge text-bg-light border">0 rows</span>
+          </div>
+          <div class="d-flex align-items-center gap-2">
+            <select id="caseSelect" class="form-select form-select-sm" style="max-width:280px;">
+            </select>
+          </div>
+        </div>
+
+        <div id="claimScroll" class="claim-scroll">
+          <table class="table claim-table table-hover align-middle">
+            <thead>
+              <tr>
+                <th style="width:30%">Patent Claim Element</th>
+                <th style="width:35%">Accused Product Feature / Evidence</th>
+                <th style="width:35%">AI Reasoning</th>
+              </tr>
+            </thead>
+            <tbody id="claimChartTbody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- RIGHT PANEL -->
+      <section class="panel panel-right">
+        <div class="chat-shell">
+          <div class="panel-topbar">
+            <div class="panel-title">Chat</div>
+            <div class="text-muted small">Groq LLM • Prototype</div>
+          </div>
+
+          <div class="accordion docs-accordion border-bottom" id="docsAccordion">
+            <div class="accordion-item border-0">
+              <h2 class="accordion-header">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#docsCollapse">
+                  📁 Documents &amp; Settings
+                </button>
+              </h2>
+              <div id="docsCollapse" class="accordion-collapse collapse" data-bs-parent="#docsAccordion">
+                <div class="accordion-body pt-0">
+                  <div class="mb-2 fw-semibold text-muted">Claim Charts</div>
+                  <div class="d-flex align-items-center gap-2 flex-wrap mb-2" id="chartChips"></div>
+                  <div class="d-flex align-items-center gap-2 mb-3">
+                    <button id="addChartBtn" class="add-doc">
+                      <i class="bi bi-plus-circle me-1"></i> Add Claim Chart (Excel/Image/PDF)
+                    </button>
+                    <input id="chartFileInput" type="file" class="d-none" accept=".xlsx,.csv,.png,.webp,.jpg,.jpeg,.pdf,.doc,.docx" />
+                  </div>
+
+                  <div class="mb-2 fw-semibold text-muted">Product / Technical Docs</div>
+                  <div class="d-flex align-items-center gap-2 flex-wrap mb-2" id="docChips"></div>
+                  <div class="d-flex align-items-center gap-2 mb-3">
+                    <button id="addDocBtn" class="add-doc">
+                      <i class="bi bi-plus-circle me-1"></i> Add Document
+                    </button>
+                    <input id="docFileInput" type="file" class="d-none" accept=".pdf,.doc,.docx,.png,.webp,.jpg,.jpeg,.txt" />
+                  </div>
+
+                  <label class="form-label fw-semibold text-muted" for="systemInstructions">System Instructions</label>
+                  <textarea
+                    id="systemInstructions"
+                    class="form-control"
+                    rows="3"
+                    placeholder="e.g., Focus on hardware claims, use technical legal language..."
+                  ></textarea>
+                  <div class="form-text">These instructions guide AI behavior during refinement</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div id="chatMessages" class="chat-messages"></div>
+
+          <div class="composer">
+            <div class="typing-wrap">
+              <div id="typingIndicator" class="typing-indicator d-none" aria-label="AI typing indicator">
+                <span></span><span></span><span></span>
+              </div>
+            </div>
+
+            <div class="quick-row" id="quickRow">
+              <button class="quick-pill" data-chip="🔍 Strengthen evidence">🔍 Strengthen evidence</button>
+              <button class="quick-pill" data-chip="✏️ Fix weak reasoning">✏️ Fix weak reasoning</button>
+              <button class="quick-pill" data-chip="➕ Add missing feature">➕ Add missing feature</button>
+              <button class="quick-pill" data-chip="↩ Undo last change">↩ Undo last change</button>
+              <button class="quick-pill" data-chip="📋 Summarize chart">📋 Summarize chart</button>
+            </div>
+
+            <div class="d-flex align-items-end gap-2">
+              <textarea id="chatInput" class="form-control" rows="1" placeholder="Ask AI to refine your claim chart..."></textarea>
+              <button id="sendBtn" class="btn btn-primary" style="background:var(--primary); border-color:var(--primary);">
+                <i class="bi bi-arrow-right"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Export modal -->
+    <div class="modal fade" id="exportModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Export to Word</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <div class="export-ready">
+              <div class="export-check">✓</div>
+              <div>
+                <div class="fw-semibold">Export Ready — Your refined claim chart has been prepared for download.</div>
+                <div class="text-muted small">Prototype UI only (no real docx generation).</div>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Download .docx</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3">
+      <div id="appToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-header">
+          <strong class="me-auto">Lumenci Assistant</strong>
+          <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+        <div id="toastBody" class="toast-body">—</div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+      (() => {
+        // Fully dynamic, DB-backed UI.
+        const state = {
+          cases: [],
+          activeCaseId: null,
+          activeChartId: null,
+          activeChart: null, // {id, status, error_message, system_instructions, rows, chat}
+        };
+
+        function getActiveCase() {
+          const id = state.activeCaseId || (state.cases[0] && state.cases[0].id);
+          let c = state.cases.find((x) => x.id === id);
+          if (!c) {
+            c = state.cases[0];
+            state.activeCaseId = c ? c.id : null;
+          }
+          return c;
+        }
+
+        // Preload chat to match UI spec (demo-only)
+        const demoChat = [
+          {
+            role: "user",
+            content: "The AI reasoning for the ML algorithm element is weak — add more technical details",
+            ts: Date.now() - 1000 * 60 * 6,
+          },
+          {
+            role: "assistant",
+            content:
+              "I've analyzed **Element 3** (ML algorithm claim). The current reasoning relies solely on marketing language, which is legally weak.\n\n" +
+              "Here's my suggested update for the **AI Reasoning** column:\n\n" +
+              "<suggestion_card>\n" +
+              "The Auto-Schedule feature implies a time-series learning model (e.g., gradient descent or collaborative filtering) operating on user-set temperatures. However, Acme's marketing evidence alone may not satisfy the 'algorithm' limitation without source code, patents, or technical whitepapers disclosing the implementation.\n" +
+              "</suggestion_card>\n\n" +
+              "Would you like me to apply this update to the chart?",
+            ts: Date.now() - 1000 * 60 * 5,
+          },
+          { role: "user", content: "Yes, apply it", ts: Date.now() - 1000 * 60 * 4 },
+          {
+            role: "assistant",
+            content:
+              "✓ Updated! Element 3 reasoning has been strengthened. The chart now shows the diff — click Accept to confirm the change.",
+            ts: Date.now() - 1000 * 60 * 3,
+          },
+        ];
+
+        const el = {
+          claimTbody: document.getElementById("claimChartTbody"),
+          claimScroll: document.getElementById("claimScroll"),
+          rowCountBadge: document.getElementById("rowCountBadge"),
+          caseSelect: document.getElementById("caseSelect"),
+          chatMessages: document.getElementById("chatMessages"),
+          chatInput: document.getElementById("chatInput"),
+          sendBtn: document.getElementById("sendBtn"),
+          typing: document.getElementById("typingIndicator"),
+          toast: document.getElementById("appToast"),
+          toastBody: document.getElementById("toastBody"),
+          docChips: document.getElementById("docChips"),
+          addDocBtn: document.getElementById("addDocBtn"),
+          docFileInput: document.getElementById("docFileInput"),
+          chartChips: document.getElementById("chartChips"),
+          addChartBtn: document.getElementById("addChartBtn"),
+          chartFileInput: document.getElementById("chartFileInput"),
+          systemInstructions: document.getElementById("systemInstructions"),
+        };
+
+        const ui = {
+          activeRowId: null,
+          pendingSuggestions: [], // [{row_id, field, old_text, new_text}]
+          typingTimer: null,
+        };
+
+        function toast(msg) {
+          el.toastBody.textContent = msg;
+          const t = bootstrap.Toast.getOrCreateInstance(el.toast, { delay: 2200 });
+          t.show();
+        }
+
+        function escapeHtml(s) {
+          return (s ?? "")
+            .replaceAll("&", "&amp;")
+            .replaceAll("<", "&lt;")
+            .replaceAll(">", "&gt;")
+            .replaceAll('"', "&quot;")
+            .replaceAll("'", "&#039;");
+        }
+
+        function strengthLabel(strength) {
+          if (strength === "strong") return "🟢 Strong";
+          if (strength === "weak") return "🟡 Weak";
+          return "🔴 Missing";
+        }
+
+        function formatTime(ts) {
+          try {
+            const d = new Date(ts || Date.now());
+            return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+          } catch {
+            return "";
+          }
+        }
+
+        function autoExpandTextarea(ta) {
+          ta.style.height = "auto";
+          ta.style.height = Math.min(ta.scrollHeight, 120) + "px";
+        }
+
+        function getActiveChart() {
+          const c = getActiveCase();
+          c.claimCharts = c.claimCharts || [];
+          let ch = c.claimCharts.find((x) => x.id === c.activeChartId);
+          if (!ch) {
+            ch = c.claimCharts[0];
+            if (ch) c.activeChartId = ch.id;
+          }
+          return ch;
+        }
+
+        function renderDocs() {
+          const c = getActiveCase();
+          const ch = getActiveChart();
+
+          // Claim charts chips (selectable)
+          el.chartChips.innerHTML = "";
+          (c.claimCharts || []).forEach((x) => {
+            const chip = document.createElement("span");
+            chip.className = "chip";
+            const isActive = ch && x.id === ch.id;
+            chip.style.borderColor = isActive ? "rgba(37,99,235,.55)" : "";
+            chip.style.background = isActive ? "#f4f8ff" : "";
+            chip.innerHTML = `📄 ${escapeHtml(x.name)} <button class="x" data-chart-id="${escapeHtml(x.id)}" aria-label="Select claim chart">⇄</button>`;
+            el.chartChips.appendChild(chip);
+          });
+
+          // Product docs chips
+          el.docChips.innerHTML = "";
+          c.productDocs = c.productDocs || [];
+          c.productDocs.forEach((d, idx) => {
+            const chip = document.createElement("span");
+            chip.className = "chip";
+            chip.innerHTML = `📎 ${escapeHtml(d.name)} <button class="x" data-doc-idx="${idx}" aria-label="Remove document">×</button>`;
+            el.docChips.appendChild(chip);
+          });
+        }
+
+        function renderCaseSelect() {
+          el.caseSelect.innerHTML = "";
+          state.cases.forEach((c) => {
+            const opt = document.createElement("option");
+            opt.value = c.id;
+            opt.textContent = c.name;
+            el.caseSelect.appendChild(opt);
+          });
+          el.caseSelect.value = state.activeCaseId;
+        }
+
+        function renderTable() {
+          const c = getActiveCase();
+          const ch = getActiveChart();
+          const rows = (ch && ch.claimChartRows) || [];
+          el.rowCountBadge.textContent = `${rows.length} rows`;
+          el.claimTbody.innerHTML = "";
+
+          const getPending = (rowId, field) =>
+            ui.pendingSuggestions.find((s) => s.row_id === rowId && s.field === field) || null;
+
+          rows.forEach((r) => {
+            const tr = document.createElement("tr");
+            tr.className = "claim-row";
+            tr.dataset.rowId = String(r.id);
+            tr.dataset.strength = r.strength || "weak";
+
+            if (ui.activeRowId === r.id) tr.classList.add("is-active");
+
+            const cell = (key) => {
+              const p = getPending(r.id, key);
+              if (p) {
+                return `
+                  <div class="diff-old"><s>${escapeHtml(p.old_text)}</s></div>
+                  <div class="diff-new">${escapeHtml(p.new_text)}</div>
+                  <div class="diff-actions">
+                    <button class="btn btn-success btn-sm" data-action="accept" data-field="${key}">
+                      <i class="bi bi-check2 me-1"></i> Accept
+                    </button>
+                    <button class="btn btn-outline-secondary btn-sm" data-action="reject" data-field="${key}">
+                      <i class="bi bi-x-lg me-1"></i> Reject
+                    </button>
+                  </div>
+                `;
+              }
+              return `<div>${escapeHtml(r[key] || "")}</div>`;
+            };
+
+            tr.innerHTML = `
+              <td style="position:relative;">
+                <span class="strength-rail"></span>
+                <span class="row-dot"><span class="dot"></span>${strengthLabel(r.strength || "weak")}</span>
+                ${cell("claim")}
+              </td>
+              <td>${cell("evidence")}</td>
+              <td>${cell("reasoning")}</td>
+            `;
+
+            el.claimTbody.appendChild(tr);
+          });
+        }
+
+        function renderChat() {
+          el.chatMessages.innerHTML = "";
+          const c = getActiveCase();
+          const ch = getActiveChart();
+          ((ch && ch.chatHistory) || []).forEach((m) => {
+            const row = document.createElement("div");
+            row.className = `msg ${m.role === "user" ? "user" : "ai"}`;
+
+            if (m.role !== "user") {
+              const avatar = document.createElement("div");
+              avatar.className = "avatar";
+              avatar.textContent = "LA";
+              row.appendChild(avatar);
+            }
+
+            const bubble = document.createElement("div");
+            bubble.className = `bubble ${m.role === "user" ? "user" : "ai"}`;
+
+            const content = document.createElement("div");
+            content.className = "content";
+
+            // Render suggestion card if present inside <suggestion_card> tags
+            const raw = m.content || "";
+            const match = raw.match(/<suggestion_card>([\s\S]*?)<\/suggestion_card>/i);
+            if (match) {
+              const before = raw.replace(match[0], "").trim();
+              const card = match[1].trim();
+              content.innerHTML =
+                `${escapeHtml(before)}\n` +
+                `<div class="suggestion-card"><div class="title">Suggested update</div><div>${escapeHtml(card)}</div></div>`;
+            } else {
+              content.textContent = raw;
+            }
+            bubble.appendChild(content);
+
+            const ts = document.createElement("div");
+            ts.className = "timestamp";
+            ts.textContent = formatTime(m.ts);
+            bubble.appendChild(ts);
+
+            row.appendChild(bubble);
+            el.chatMessages.appendChild(row);
+          });
+
+          el.chatMessages.scrollTop = el.chatMessages.scrollHeight;
+        }
+
+        function showTyping(on) {
+          el.typing.classList.toggle("d-none", !on);
+        }
+
+        function setActiveRow(rowId) {
+          ui.activeRowId = rowId;
+          renderTable();
+          if (!rowId) return;
+          const rowEl = el.claimTbody.querySelector(`tr[data-row-id="${rowId}"]`);
+          if (rowEl) {
+            rowEl.scrollIntoView({ behavior: "smooth", block: "center" });
+          }
+        }
+
+        function pushChange(prevRows) {
+          const ch = getActiveChart();
+          ch.changeHistory = ch.changeHistory || [];
+          ch.changeHistory.push({ ts: Date.now(), prevRows });
+        }
+
+        function clearPendingSuggestion() {
+          ui.pendingSuggestions = [];
+          renderTable();
+        }
+
+        function applySuggestion(s) {
+          const ch = getActiveChart();
+          const prev = JSON.parse(JSON.stringify((ch && ch.claimChartRows) || []));
+          const rows = (ch && ch.claimChartRows) || [];
+          const r = rows.find((x) => x.id === s.row_id);
+          if (!r) return;
+
+          pushChange(prev);
+
+          if (s.field === "claim") r.claim = s.new_text;
+          if (s.field === "evidence") r.evidence = s.new_text;
+          if (s.field === "reasoning") r.reasoning = s.new_text;
+
+          // Flash row green briefly
+          clearPendingSuggestion();
+          setActiveRow(r.id);
+          const rowEl = el.claimTbody.querySelector(`tr[data-row-id="${r.id}"]`);
+          if (rowEl) {
+            rowEl.classList.add("row-flash");
+            setTimeout(() => rowEl.classList.remove("row-flash"), 320);
+          }
+          toast("✓ Change accepted");
+          syncStateToServer();
+        }
+
+        function rejectSuggestion(rowId, field) {
+          ui.pendingSuggestions = ui.pendingSuggestions.filter((s) => !(s.row_id === rowId && s.field === field));
+          if (!ui.pendingSuggestions.length) ui.activeRowId = null;
+          renderTable();
+          toast("✗ Suggestion rejected");
+        }
+
+        function undoLastChange() {
+          const ch = getActiveChart();
+          const stack = ch.changeHistory || [];
+          if (!stack.length) {
+            toast("Nothing to undo");
+            return;
+          }
+          const last = stack.pop();
+          ch.claimChartRows = last.prevRows;
+          ui.pendingSuggestions = [];
+          ui.activeRowId = null;
+          renderTable();
+          toast("↩ Reverted to previous version");
+          syncStateToServer();
+        }
+
+        function maybeHighlightFromText(text) {
+          const t = (text || "").toLowerCase();
+          const m = t.match(/(?:element|row)\s*(1|2|3)/);
+          if (m) setActiveRow(Number(m[1]));
+        }
+
+        async function syncStateToServer() {
+          // Prototype: keep session synced so backend includes current chart in every LLM call.
+          try {
+            await fetch("/api/chat", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                message: "",
+                systemInstructions: ((getActiveChart() || {}).systemInstructions || ""),
+                state,
+              }),
+            });
+          } catch {}
+        }
+
+        async function sendMessage(message) {
+          const msg = (message || "").trim();
+          if (!msg) return;
+
+          if (msg.toLowerCase() === "undo" || msg.toLowerCase() === "undo last change") {
+            getActiveChart().chatHistory.push({ role: "user", content: msg, ts: Date.now() });
+            renderChat();
+            undoLastChange();
+            return;
+          }
+
+          getActiveChart().chatHistory.push({ role: "user", content: msg, ts: Date.now() });
+          renderChat();
+          maybeHighlightFromText(msg);
+
+          showTyping(false);
+          if (ui.typingTimer) clearTimeout(ui.typingTimer);
+          ui.typingTimer = setTimeout(() => showTyping(true), 300);
+
+          try {
+            const resp = await fetch("/api/chat", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                message: msg,
+                systemInstructions: ((getActiveChart() || {}).systemInstructions || ""),
+                state,
+              }),
+            });
+            const data = await resp.json();
+            showTyping(false);
+            if (ui.typingTimer) clearTimeout(ui.typingTimer);
+
+            const suggestions = data.suggestions || [];
+            const assistantText = data.assistant || "—";
+
+            // If the backend returns a structured suggestion, also render it as an in-bubble suggestion card.
+            let assistantWithCard = assistantText;
+            if (suggestions.length) {
+              const s = suggestions[0];
+              const fieldLabel =
+                s.field === "claim"
+                  ? "Patent Claim Element"
+                  : s.field === "evidence"
+                    ? "Accused Product Feature / Evidence"
+                    : "AI Reasoning";
+              assistantWithCard =
+                assistantText +
+                "\n\nHere's my suggested update for the **" +
+                fieldLabel +
+                "** column (Row " +
+                s.row_id +
+                "):\n\n<suggestion_card>\n" +
+                (s.new_text || "") +
+                "\n</suggestion_card>\n\nThe chart now shows the diff — click Accept to confirm the change.";
+            }
+
+            getActiveChart().chatHistory.push({ role: "assistant", content: assistantWithCard, ts: Date.now() });
+            renderChat();
+            maybeHighlightFromText(assistantWithCard);
+
+            if (suggestions.length) {
+              ui.pendingSuggestions = suggestions.map((s) => ({
+                row_id: Number(s.row_id),
+                field: s.field,
+                old_text: s.old_text,
+                new_text: s.new_text,
+              }));
+              setActiveRow(ui.pendingSuggestions[0].row_id);
+              renderTable();
+            }
+          } catch {
+            showTyping(false);
+            if (ui.typingTimer) clearTimeout(ui.typingTimer);
+            getActiveChart().chatHistory.push({
+              role: "assistant",
+              content: "I couldn't reach the server. Is Django running?",
+              ts: Date.now(),
+            });
+            renderChat();
+          }
+        }
+
+        function wireEvents() {
+          // Case switching
+          el.caseSelect.addEventListener("change", () => {
+            state.activeCaseId = el.caseSelect.value;
+            ui.pendingSuggestions = [];
+            ui.activeRowId = null;
+            // Update settings UI from the selected case
+            el.systemInstructions.value = (getActiveCase().systemInstructions || "");
+            renderDocs();
+            renderTable();
+            renderChat();
+            syncStateToServer();
+          });
+
+          // Quick chips
+          document.querySelectorAll("[data-chip]").forEach((btn) => {
+            btn.addEventListener("click", () => {
+              const text = btn.getAttribute("data-chip") || "";
+              if (text.includes("Undo")) {
+                sendMessage("undo");
+                return;
+              }
+              el.chatInput.value = text;
+              autoExpandTextarea(el.chatInput);
+              el.chatInput.focus();
+            });
+          });
+
+          // Send button
+          el.sendBtn.addEventListener("click", () => {
+            const v = el.chatInput.value;
+            el.chatInput.value = "";
+            autoExpandTextarea(el.chatInput);
+            sendMessage(v);
+          });
+
+          // Enter to send (Shift+Enter newline)
+          el.chatInput.addEventListener("keydown", (e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              const v = el.chatInput.value;
+              el.chatInput.value = "";
+              autoExpandTextarea(el.chatInput);
+              sendMessage(v);
+            }
+          });
+          el.chatInput.addEventListener("input", () => autoExpandTextarea(el.chatInput));
+
+          // Docs: add/remove
+          el.addDocBtn.addEventListener("click", () => el.docFileInput.click());
+          el.docFileInput.addEventListener("change", () => {
+            const f = el.docFileInput.files && el.docFileInput.files[0];
+            if (!f) return;
+            const c = getActiveCase();
+            c.productDocs = c.productDocs || [];
+            c.productDocs.push({ name: f.name, kind: "product_doc" });
+            renderDocs();
+            toast("Document added");
+            el.docFileInput.value = "";
+            syncStateToServer();
+          });
+          el.docChips.addEventListener("click", (e) => {
+            const t = e.target;
+            if (!(t instanceof HTMLElement)) return;
+            const idx = t.getAttribute("data-doc-idx");
+            if (idx == null) return;
+            getActiveCase().productDocs.splice(Number(idx), 1);
+            renderDocs();
+            toast("Document removed");
+            syncStateToServer();
+          });
+
+          // Claim chart upload + switching (supports images too)
+          el.addChartBtn.addEventListener("click", () => el.chartFileInput.click());
+          el.chartFileInput.addEventListener("change", () => {
+            const f = el.chartFileInput.files && el.chartFileInput.files[0];
+            if (!f) return;
+            const c = getActiveCase();
+            c.claimCharts = c.claimCharts || [];
+            const id = "chart-" + Math.random().toString(16).slice(2);
+            const base = (getActiveChart() && getActiveChart().claimChartRows) ? JSON.parse(JSON.stringify(getActiveChart().claimChartRows)) : [];
+            c.claimCharts.push({
+              id,
+              name: f.name,
+              source_type: (f.name.split(".").pop() || "").toLowerCase(),
+              source_name: f.name,
+              claimChartRows: base,
+              chatHistory: [],
+              changeHistory: [],
+              systemInstructions: "",
+            });
+            c.activeChartId = id;
+            el.systemInstructions.value = "";
+            ui.pendingSuggestions = [];
+            ui.activeRowId = null;
+            renderDocs();
+            renderTable();
+            renderChat();
+            toast("Claim chart added (no parsing in prototype)");
+            el.chartFileInput.value = "";
+            syncStateToServer();
+          });
+          el.chartChips.addEventListener("click", (e) => {
+            const t = e.target;
+            if (!(t instanceof HTMLElement)) return;
+            const chartId = t.getAttribute("data-chart-id");
+            if (!chartId) return;
+            const c = getActiveCase();
+            c.activeChartId = chartId;
+            el.systemInstructions.value = ((getActiveChart() || {}).systemInstructions || "");
+            ui.pendingSuggestions = [];
+            ui.activeRowId = null;
+            renderDocs();
+            renderTable();
+            renderChat();
+            syncStateToServer();
+          });
+
+          // System instructions
+          el.systemInstructions.addEventListener("input", () => {
+            getActiveChart().systemInstructions = el.systemInstructions.value || "";
+          });
+
+          // Table actions + row activation
+          el.claimTbody.addEventListener("click", (e) => {
+            const target = e.target;
+            if (!(target instanceof HTMLElement)) return;
+            const tr = target.closest("tr");
+            if (!tr) return;
+            const rowId = Number(tr.dataset.rowId);
+            if (rowId) setActiveRow(rowId);
+
+            const acceptBtn = target.closest("[data-action='accept']");
+            const rejectBtn = target.closest("[data-action='reject']");
+            if (acceptBtn) {
+              const field = acceptBtn.getAttribute("data-field");
+              const s = ui.pendingSuggestions.find((x) => x.row_id === rowId && x.field === field);
+              if (s) {
+                applySuggestion(s);
+                ui.pendingSuggestions = ui.pendingSuggestions.filter((x) => x !== s);
+                if (!ui.pendingSuggestions.length) ui.activeRowId = null;
+                renderTable();
+              }
+              return;
+            }
+            if (rejectBtn) {
+              const field = rejectBtn.getAttribute("data-field");
+              if (field) rejectSuggestion(rowId, field);
+              return;
+            }
+          });
+        }
+
+        function initDemoDiffForRow3() {
+          // Show a diff suggestion for row 3 by default (per your demo script).
+          const r3 = (state.claimChartRows || []).find((r) => r.id === 3);
+          if (!r3) return;
+          ui.pendingSuggestions = [
+            {
+              row_id: 3,
+              field: "reasoning",
+              old_text: r3.reasoning,
+              new_text:
+                "The Auto-Schedule feature implies a time-series preference-learning model that updates a user-specific schedule based on observed manual setpoint changes and occupancy/temporal patterns. However, without source code, firmware notes, patents, or technical whitepapers disclosing the implementation, the current evidence remains behavioral and may not satisfy the claim’s explicit 'algorithm' limitation.",
+            },
+          ];
+          setActiveRow(3);
+        }
+
+        function boot() {
+          // Apply the demo seed to the active case, without disturbing other cases.
+          const c = getActiveCase();
+          c.claimCharts = c.claimCharts || [];
+          if (!c.claimCharts.length) {
+            const id = "chart-seed";
+            c.activeChartId = id;
+            c.claimCharts = [
+              {
+                id,
+                name: "ClaimChart.xlsx",
+                source_type: "xlsx",
+                source_name: "ClaimChart.xlsx",
+                claimChartRows: c.claimChartRows || [],
+                chatHistory: demoChat,
+                changeHistory: [],
+                systemInstructions: "",
+              },
+            ];
+          }
+          const ch = getActiveChart();
+          ch.chatHistory = ch.chatHistory && ch.chatHistory.length ? ch.chatHistory : demoChat;
+
+          // Normalize row texts to match UI spec
+          const r3 = (ch.claimChartRows || []).find((r) => r.id === 3);
+          if (r3) {
+            r3.reasoning = "Learning behavior suggests ML algorithm, but technical implementation not disclosed. Needs stronger evidence.";
+            r3.strength = "weak";
+          }
+          const r1 = (ch.claimChartRows || []).find((r) => r.id === 1);
+          if (r1) r1.evidence = 'Acme Thermostat product page: "WiFi-enabled smart thermostat connects to your home network"';
+          const r2 = (ch.claimChartRows || []).find((r) => r.id === 2);
+          if (r2) r2.evidence = 'Acme technical specs: "Built-in motion sensor detects when people are home"';
+
+          renderCaseSelect();
+          renderDocs();
+          renderTable();
+          renderChat();
+          wireEvents();
+          autoExpandTextarea(el.chatInput);
+          initDemoDiffForRow3();
+          syncStateToServer();
+        }
+
+        async function boot() {
+          await refreshCases();
+          renderTable();
+          renderChat();
+          wireEvents();
+          autoExpandTextarea(el.chatInput);
+        }
+
+        boot();
+      })();
+    </script>
+  </body>
+</html>
